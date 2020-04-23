@@ -60,7 +60,7 @@ void TTHRESHEncoding::encodeRLE(double * c, int numC, double errorTarget, std::v
 	long double thresh = errorTarget*errorTarget*frobNormSq;
 	bool done = false;
 
-	std::cout << "SSE: " << sse << " Thresh: " << thresh << std::endl;
+	std::cout << "SSE: " << sse << " Thresh: " << thresh <<  std::endl;
 
 	std::vector<uint64_t> mask(numC, 0);//creating bitmask to determine already relevant coefficients
 	
@@ -74,14 +74,10 @@ void TTHRESHEncoding::encodeRLE(double * c, int numC, double errorTarget, std::v
 
 		for (int co = 0; co < numC; co++) {//running through the coefficients
 
-			unsigned curBit = ((n[co] >> p) & 1);//access p-th bit
+			unsigned curBit = ((n[co] >> p) & 1);//access p-th bits
 			planeOnes += curBit;
 
 			if (mask[co]==0) {//not active, encode rle
-
-				if (co==numC-1 && curBit==0) {//special case: end of line TODO: effizienter lösen, in dem ausßerhalb der for schleife gesetzt
-					cRLE.push_back(run + 1);
-				}
 
 				if (curBit==1) {
 					cRLE.push_back(run);
@@ -101,7 +97,7 @@ void TTHRESHEncoding::encodeRLE(double * c, int numC, double errorTarget, std::v
 			if (curBit == 1) {//update sse and check for exit condition
 				planeSSE += long double(n[co] - mask[co]);
 
-				mask[co] |= 1 << p;//mark in mask if active
+				mask[co] |= (unsigned long long(1) << p);//mark in mask if active
 
 				long double k = (unsigned long long(1) << p); //TODO 1<<p ist zu groß für double
 				long double sseCur = sse + (-2 * k*planeSSE + k * k*planeOnes);
@@ -118,6 +114,8 @@ void TTHRESHEncoding::encodeRLE(double * c, int numC, double errorTarget, std::v
 
 		}
 
+		cRLE.push_back(run); //safe last run
+
 		rle.push_back(cRLE);
 		raw.push_back(cRaw);
 
@@ -129,5 +127,31 @@ void TTHRESHEncoding::encodeRLE(double * c, int numC, double errorTarget, std::v
 		}
 	}
 
+	//TODO: Vorzeichen speichern!
 
+}
+
+void TTHRESHEncoding::compress(double * coefficients, int numC, double errorTarget, ErrorType etype, std::vector<std::vector<int>>& rle, std::vector<std::vector<int>>& raw)
+{
+	//convert sse according to target error
+
+	double dataNorm = 0;
+	for (int i = 0; i < numC; i++) {
+		dataNorm += (coefficients[i] * coefficients[i]);
+	}
+	dataNorm = sqrt(dataNorm);
+
+	double sse;
+	switch (etype)
+	{
+	case epsilon: sse = pow(errorTarget*dataNorm,2); //see paper for conversion formula
+		break;
+
+	case rmse: sse = pow(errorTarget,2)*numC;
+		break;
+	}
+
+	double convertedError = sqrt(sse) / dataNorm;
+
+	//TODO aufrufen der encode array func mit convertedError
 }
