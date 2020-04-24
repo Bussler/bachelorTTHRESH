@@ -14,26 +14,7 @@ unsigned * TTHRESHEncoding::getBits(uint64_t* n, int k, int numBits)
 	return bits;
 }
 
-//takes bit-array of size numBits as input, encodes it with rle
-std::vector<int> TTHRESHEncoding::RLE(unsigned * input, int numBits)
-{
-	std::vector<int> rle;
-	int run = 0;
-
-	for (int i = 0;i < numBits; i++) {
-		if (input[i]==1 || i==numBits-1) {
-			rle.push_back(run);
-			run = 0;
-		}
-		else {
-			run++;
-		}
-	}
-
-	return rle;
-}
-
-
+//encode the coefficients with the help of rle/verbatim until error is below given threshold. Results are safed in rle and raw vectors
 void TTHRESHEncoding::encodeRLE(double * c, int numC, double errorTarget, std::vector<std::vector<int>>& rle, std::vector<std::vector<int>>& raw)
 {
 	double max = 0;
@@ -59,8 +40,6 @@ void TTHRESHEncoding::encodeRLE(double * c, int numC, double errorTarget, std::v
 	long double sse = frobNormSq;//exit condition: sse < given threshold TODO: shoul be long long double
 	long double thresh = errorTarget*errorTarget*frobNormSq;
 	bool done = false;
-
-	std::cout << "SSE: " << sse << " Thresh: " << thresh <<  std::endl;
 
 	std::vector<uint64_t> mask(numC, 0);//creating bitmask to determine already relevant coefficients
 	
@@ -99,10 +78,8 @@ void TTHRESHEncoding::encodeRLE(double * c, int numC, double errorTarget, std::v
 
 				mask[co] |= (unsigned long long(1) << p);//mark in mask if active
 
-				long double k = (unsigned long long(1) << p); //TODO 1<<p ist zu groß für double
+				long double k = (unsigned long long(1) << p);
 				long double sseCur = sse + (-2 * k*planeSSE + k * k*planeOnes);
-
-				std::cout << "Plane sse: " << planeSSE << " Plane Ones: " << planeOnes << " sseCur: " << sseCur << " K: "<<k << std::endl;
 
 				if (sseCur <= thresh) {
 					done = true;
@@ -127,10 +104,87 @@ void TTHRESHEncoding::encodeRLE(double * c, int numC, double errorTarget, std::v
 		}
 	}
 
-	//TODO: Vorzeichen speichern!
+	//TODO: Vorzeichen, Scale speichern!
+
+	/*double * dec = TTHRESHEncoding::decodeRLE(rle, raw, numC, scaleK);
+	for (int i = 0;i < numC;i++) {
+		std::cout << dec[i] << std::endl;
+	}*/
 
 }
 
+double * TTHRESHEncoding::decodeRLE(std::vector<std::vector<int>> rle, std::vector<std::vector<int>> raw, int numC, double scale)
+{
+	//convert back from rle/verbatim
+	std::vector<uint64_t> mask(numC, 0);//holds the bits for coefficients
+	int vecCount = 0;
+	bool done = false;
+
+	for (int p = 63; p >= 0; p--) {//for every bitplane
+
+		int rleCount = 0;
+		int verbCount = 0;
+
+		int run = 0;
+		if(rle[vecCount].size()>0)
+		run = rle[vecCount][rleCount++];//current length of 0-run
+
+		for (int co = 0;co < numC;co++) {//for every coefficient
+
+			if (mask[co] == 0) {//rle encoding
+
+				if (run == 0) {
+					mask[co] |= (unsigned long long(1) << p); //encode 1
+					
+					if (rleCount < rle[vecCount].size())
+						run = rle[vecCount][rleCount++]; //get next 0 run
+				}
+				else {
+					run--;
+				}
+
+			}
+			else {//verbatim encoding TODO:aufpassen, dass man nicht rausläuft
+				if (raw[vecCount][verbCount]==1) {
+					mask[co] |= (unsigned long long(1) << p); //encode 1
+				}
+				verbCount++;
+			}
+
+			if (vecCount == rle.size()-1 && verbCount >= raw[vecCount].size() && rleCount >= rle[vecCount].size() ) {//stop the decription, if there is no data left
+				done = true;
+				break;
+			}
+
+		}
+
+		vecCount++;
+
+		if (done ||  vecCount==rle.size()) {
+			break;
+		}
+	}
+
+	//scale back into original double values
+	double * c = (double *) malloc(sizeof(double)*numC);
+	for (int co = 0; co < numC; co++) {
+		c[co] = double(mask[co] / scale);
+	}
+
+	//signs
+
+	/*//debugging
+	for (int i = 0;i < 4; i++) {
+		std::cout << "Plane " << i << std::endl;
+		for (int j = 0;j < numC;j++) {
+			std::cout << ((mask[j] >> (63-i)) & 1) << std::endl;
+		}
+	}*/
+
+	return c;
+}
+
+//convert sse according to specified errorType and starts the rle/verbatim encoding process
 void TTHRESHEncoding::compress(double * coefficients, int numC, double errorTarget, ErrorType etype, std::vector<std::vector<int>>& rle, std::vector<std::vector<int>>& raw)
 {
 	//convert sse according to target error
@@ -149,9 +203,13 @@ void TTHRESHEncoding::compress(double * coefficients, int numC, double errorTarg
 
 	case rmse: sse = pow(errorTarget,2)*numC;
 		break;
+	
+	case psnr: //TODO
+		break;
 	}
 
 	double convertedError = sqrt(sse) / dataNorm;
 
-	//TODO aufrufen der encode array func mit convertedError
+	encodeRLE(coefficients, numC, convertedError,rle, raw);
+
 }

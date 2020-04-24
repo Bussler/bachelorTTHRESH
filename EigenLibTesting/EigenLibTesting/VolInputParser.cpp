@@ -8,15 +8,6 @@ VolInputParser::VolInputParser()
 	DummyTensor.setValues({ { { 1,7 },{ 3,9 },{ 5,11 } },
 							{ { 2,8 },{ 4,10 },{ 6,12 } } });
 
-	/*DummyTensor = Eigen::Tensor<myTensorType, 3>(3, 3, 3);
-	int counter = 0;
-	for (int i = 0;i < 3;i++) {
-		for (int j = 0; j < 3; j++) {
-			for (int k = 0; k < 3; k++) {
-				DummyTensor(j,k,i) = counter++;
-			}
-		}
-	}*/
 	std::cout << "Dummy: " << std::endl << DummyTensor << std::endl;
 
 	//std::cout << "Dummy: " << std::endl << DummyTensor(1,2,1) << std::endl;
@@ -67,12 +58,11 @@ void VolInputParser::readInputVol(char * txtname)
 	//read in the array into Tensor slice by slice TODO: instantly read in the file? Maybe use iffile for read
 	int hCount = 0;
 
-	//TODO: wir hätten in Matrixform hier schon das 1 Mode unfolding! -> nicht in Tensor, sondern in Matrix einlesen!
 	for (int z = 0; z<int(*sizeZ); z++) {
 		for (int y= 0; y<int(*sizeY); y++) {
 			for (int x = 0; x<int(*sizeX); x++) {
 				//if (hCount == 488352 + 11) std::cout << int(pData[hCount]) << " at X: " << x << " Y: " << y << " Z: " << z << std::endl;
-				TensorData(x, y, z) = int(pData[hCount++]);
+				TensorData(x, y, z) = int(pData[hCount++]); //TODO use Map function for this
 			}
 		}
 	}
