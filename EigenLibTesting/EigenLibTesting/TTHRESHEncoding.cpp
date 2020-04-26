@@ -15,7 +15,7 @@ unsigned * TTHRESHEncoding::getBits(uint64_t* n, int k, int numBits)
 }
 
 //encode the coefficients with the help of rle/verbatim until error is below given threshold. Results are safed in rle and raw vectors
-void TTHRESHEncoding::encodeRLE(double * c, int numC, double errorTarget, std::vector<std::vector<int>>& rle, std::vector<std::vector<int>>& raw)
+void TTHRESHEncoding::encodeRLE(double * c, int numC, double errorTarget, std::vector<std::vector<int>>& rle, std::vector<std::vector<int>>& raw, double& scale)
 {
 	double max = 0;
 	for (int i = 0;i < numC;i++) {
@@ -25,7 +25,7 @@ void TTHRESHEncoding::encodeRLE(double * c, int numC, double errorTarget, std::v
 	}
 	
 	double scaleK = ldexp(1, 63 - ilogb(max));//calculate scale factor according to tthresh paper formula
-	long double frobNormSq = 0;//Squared Frobeniusnorm of tensor, needed for sse TODO should be long long double
+	long double frobNormSq = 0;//Squared Frobeniusnorm of tensor
 	
 	uint64_t * n = (uint64_t*) malloc(sizeof(uint64_t)*numC);//array to store the scaled coefficients
 	
@@ -37,7 +37,7 @@ void TTHRESHEncoding::encodeRLE(double * c, int numC, double errorTarget, std::v
 
 	frobNormSq *= scaleK * scaleK;
 
-	long double sse = frobNormSq;//exit condition: sse < given threshold TODO: shoul be long long double
+	long double sse = frobNormSq;//exit condition: sse < given threshold
 	long double thresh = errorTarget*errorTarget*frobNormSq;
 	bool done = false;
 
@@ -45,7 +45,7 @@ void TTHRESHEncoding::encodeRLE(double * c, int numC, double errorTarget, std::v
 	
 	for (int p = 63;p >= 0; p--) {//running through bit-planes
 
-		std::vector<int> cRaw;
+		std::vector<int> cRaw; //TODO encode and SAVE single bits only! not as ints
 		std::vector<int> cRLE;
 		int run = 0;
 		int planeOnes = 0;//sse is reduced by each 1 in plane
@@ -104,12 +104,9 @@ void TTHRESHEncoding::encodeRLE(double * c, int numC, double errorTarget, std::v
 		}
 	}
 
-	//TODO: Vorzeichen, Scale speichern!
 
-	/*double * dec = TTHRESHEncoding::decodeRLE(rle, raw, numC, scaleK);
-	for (int i = 0;i < numC;i++) {
-		std::cout << dec[i] << std::endl;
-	}*/
+	scale = scaleK;
+	//TODO: Vorzeichen, Scale speichern!
 
 }
 
@@ -144,7 +141,7 @@ double * TTHRESHEncoding::decodeRLE(std::vector<std::vector<int>> rle, std::vect
 				}
 
 			}
-			else {//verbatim encoding TODO:aufpassen, dass man nicht rausläuft
+			else {//verbatim encoding 
 				if (raw[vecCount][verbCount]==1) {
 					mask[co] |= (unsigned long long(1) << p); //encode 1
 				}
@@ -185,7 +182,7 @@ double * TTHRESHEncoding::decodeRLE(std::vector<std::vector<int>> rle, std::vect
 }
 
 //convert sse according to specified errorType and starts the rle/verbatim encoding process
-void TTHRESHEncoding::compress(double * coefficients, int numC, double errorTarget, ErrorType etype, std::vector<std::vector<int>>& rle, std::vector<std::vector<int>>& raw)
+void TTHRESHEncoding::compress(double * coefficients, int numC, double errorTarget, ErrorType etype, std::vector<std::vector<int>>& rle, std::vector<std::vector<int>>& raw, double& scale)
 {
 	//convert sse according to target error
 
@@ -210,6 +207,6 @@ void TTHRESHEncoding::compress(double * coefficients, int numC, double errorTarg
 
 	double convertedError = sqrt(sse) / dataNorm;
 
-	encodeRLE(coefficients, numC, convertedError,rle, raw);
+	encodeRLE(coefficients, numC, convertedError,rle, raw,scale);
 
 }

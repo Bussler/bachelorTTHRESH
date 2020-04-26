@@ -12,16 +12,21 @@ VolInputParser::VolInputParser()
 
 	//std::cout << "Dummy: " << std::endl << DummyTensor(1,2,1) << std::endl;
 
+	//rw.wFile = fopen("erg.txt", "w"); //Open document to write into
 }
 
 VolInputParser::VolInputParser(char * txtname)
 {
-	readInputVol(txtname);
+	//rw.wFile = fopen("erg.txt", "w"); //Open document to write into
+
+	readInputVol(txtname);//read in the data
 }
 
 
 VolInputParser::~VolInputParser()
 {
+	//TODO write any remaining bits
+	//fclose(rw.wFile);
 }
 
 void VolInputParser::readInputVol(char * txtname)
@@ -57,7 +62,7 @@ void VolInputParser::readInputVol(char * txtname)
 	
 	//read in the array into Tensor slice by slice TODO: instantly read in the file? Maybe use iffile for read
 	int hCount = 0;
-
+	
 	for (int z = 0; z<int(*sizeZ); z++) {
 		for (int y= 0; y<int(*sizeY); y++) {
 			for (int x = 0; x<int(*sizeX); x++) {
@@ -69,4 +74,61 @@ void VolInputParser::readInputVol(char * txtname)
 
 	fclose(fp);
 	delete pData;
+}
+
+void VolInputParser::writeData(unsigned char * data, int numBytes)
+{
+	fwrite(data, 1, numBytes, rw.wFile); //writes numBytes byte(char) into file
+}
+
+
+//method to safe data bitwise //TODO von vorne nach hinten also 63...0 bit codieren nicht anders herum!
+void VolInputParser::writeBit(uint64_t bits, int numBits)
+{
+	if (numBits<=rw.numWBit) {//we have free bit, just write them in
+		rw.wbyte |= bits << ((rw.numWBit + 1)-numBits);
+		rw.numWBit -= numBits;
+	}
+	else {// write as many bit as we can, store the rest again
+		if (rw.numWBit >=0) {
+			rw.wbyte |= bits >> (numBits - (rw.numWBit + 1));
+		}
+
+		writeData((unsigned char *) & rw.wbyte, sizeof(rw.wbyte));
+
+		numBits -= rw.numWBit + 1;
+		rw.wbyte = 0;
+		rw.wbyte |= bits << (63 - numBits);
+		rw.numWBit = 63 - numBits;
+	}
+}
+
+void VolInputParser::writeRemainingBit()
+{
+	if(rw.numWBit<63)
+		writeData((unsigned char *)& rw.wbyte, sizeof(rw.wbyte));
+}
+
+//write the dimensions as short(), scale as double 
+void VolInputParser::writeCharacteristicData(int dim1, int dim2, int dim3, double scale)
+{
+	rw.wFile = fopen("erg.txt", "w"); //Open document to write into
+	/*writeData((unsigned char*)& dim1, sizeof(unsigned short));
+	writeData((unsigned char*)& dim2, sizeof(unsigned short));
+	writeData((unsigned char*)& dim3, sizeof(unsigned short));
+	writeData((unsigned char*)& scale, sizeof(double));*/
+
+	std::cout << sizeof(int) << std::endl;
+
+	writeBit(uint64_t(dim1), 16);
+	writeBit(uint64_t(dim2), 16);
+	writeBit(uint64_t(dim3), 16);
+
+	writeRemainingBit();
+
+	fclose(rw.wFile);
+
+	//approach with fstream
+
+
 }

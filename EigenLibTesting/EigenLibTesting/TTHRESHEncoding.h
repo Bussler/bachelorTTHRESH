@@ -4,6 +4,7 @@
 #include <vector>
 #include <math.h>
 
+
 namespace TTHRESHEncoding {
 
 	enum ErrorType
@@ -15,11 +16,11 @@ namespace TTHRESHEncoding {
 
 	unsigned * getBits(uint64_t* n, int k, int numBits);
 	
-	void encodeRLE(double * coefficients, int numC, double errorTarget, std::vector<std::vector<int>> & rle, std::vector<std::vector<int>>& raw);
+	void encodeRLE(double * coefficients, int numC, double errorTarget, std::vector<std::vector<int>> & rle, std::vector<std::vector<int>>& raw, double& scale);
 	double* decodeRLE(std::vector<std::vector<int>> rle, std::vector<std::vector<int>> raw, int numC, double scale);
 
 	
-	void compress(double * coefficients, int numC, double errorTarget, ErrorType etype, std::vector<std::vector<int>> & rle, std::vector<std::vector<int>>& raw);
+	void compress(double * coefficients, int numC, double errorTarget, ErrorType etype, std::vector<std::vector<int>> & rle, std::vector<std::vector<int>>& raw, double& scale);
 
 }
 
