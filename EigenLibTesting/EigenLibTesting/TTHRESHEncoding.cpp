@@ -168,15 +168,7 @@ double * TTHRESHEncoding::decodeRLE(std::vector<std::vector<int>> rle, std::vect
 		c[co] = double(mask[co] / scale);
 	}
 
-	//signs
-
-	/*//debugging
-	for (int i = 0;i < 4; i++) {
-		std::cout << "Plane " << i << std::endl;
-		for (int j = 0;j < numC;j++) {
-			std::cout << ((mask[j] >> (63-i)) & 1) << std::endl;
-		}
-	}*/
+	//TODO: signs
 
 	return c;
 }

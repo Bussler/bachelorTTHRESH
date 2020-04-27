@@ -83,52 +83,83 @@ void VolInputParser::writeData(unsigned char * data, int numBytes)
 
 
 //method to safe data bitwise //TODO von vorne nach hinten also 63...0 bit codieren nicht anders herum!
-void VolInputParser::writeBit(uint64_t bits, int numBits)
+/*void VolInputParser::writeBit(uint64_t bits, int numBits)
 {
-	if (numBits<=rw.numWBit) {//we have free bit, just write them in
-		rw.wbyte |= bits << ((rw.numWBit + 1)-numBits);
+	if (numBits<=rw.numWBit+1) {//we have free bit, just write them in
+		rw.wbyte |= (bits << ((rw.numWBit + 1)-numBits));
 		rw.numWBit -= numBits;
 	}
 	else {// write as many bit as we can, store the rest again
 		if (rw.numWBit >=0) {
-			rw.wbyte |= bits >> (numBits - (rw.numWBit + 1));
+			rw.wbyte |= (bits >> (numBits - (rw.numWBit + 1)));
 		}
 
+		//unsigned __int64 swapped= _byteswap_uint64(rw.wbyte);
+		//writeData((unsigned char *)& swapped, sizeof(rw.wbyte));
 		writeData((unsigned char *) & rw.wbyte, sizeof(rw.wbyte));
 
 		numBits -= rw.numWBit + 1;
 		rw.wbyte = 0;
-		rw.wbyte |= bits << (63 - numBits);
+		rw.wbyte |= (bits << (64 - numBits));
 		rw.numWBit = 63 - numBits;
+	}
+}*/
+
+/*void VolInputParser::writeRemainingBit()
+{
+	if (rw.numWBit < 63) {
+		//unsigned __int64 swapped = _byteswap_uint64(rw.wbyte);
+		//writeData((unsigned char *)& swapped, sizeof(rw.wbyte));
+		writeData((unsigned char *)& rw.wbyte, sizeof(rw.wbyte));
+	}
+
+}*/
+
+void VolInputParser::writeBit(uint64_t bits, int numBits)
+{
+	if (numBits+rw.vergWBit <= 64) {//we have free bit, just write them in TODO -1?
+		rw.wbyte |= bits << (rw.vergWBit);
+		rw.vergWBit += numBits;
+	}
+	else {// write as many bit as we can, store the rest again
+
+		if (rw.vergWBit<64) {//if there is still something free, squeeze it in
+			rw.wbyte |= (bits << (rw.vergWBit));
+		}
+		
+		writeData((unsigned char *)& rw.wbyte, sizeof(rw.wbyte));
+
+		numBits -= 64-rw.vergWBit;
+		rw.wbyte = 0;
+		rw.wbyte |= (bits >> (64 - rw.vergWBit));
+		rw.vergWBit = 0+numBits;
 	}
 }
 
 void VolInputParser::writeRemainingBit()
 {
-	if(rw.numWBit<63)
+	if (rw.vergWBit >0 ) {
 		writeData((unsigned char *)& rw.wbyte, sizeof(rw.wbyte));
+	}
+
 }
+
 
 //write the dimensions as short(), scale as double 
 void VolInputParser::writeCharacteristicData(int dim1, int dim2, int dim3, double scale)
 {
 	rw.wFile = fopen("erg.txt", "w"); //Open document to write into
-	/*writeData((unsigned char*)& dim1, sizeof(unsigned short));
-	writeData((unsigned char*)& dim2, sizeof(unsigned short));
-	writeData((unsigned char*)& dim3, sizeof(unsigned short));
-	writeData((unsigned char*)& scale, sizeof(double));*/
 
-	std::cout << sizeof(int) << std::endl;
+	writeBit(uint64_t(dim1), sizeof(unsigned short)*8);
+	writeBit(uint64_t(dim2), sizeof(unsigned short) * 8);
+	writeBit(uint64_t(dim3), sizeof(unsigned short) * 8);
 
-	writeBit(uint64_t(dim1), 16);
-	writeBit(uint64_t(dim2), 16);
-	writeBit(uint64_t(dim3), 16);
+	uint64_t tmp;
+	memcpy(&tmp, (void*)&scale, sizeof(scale));
+	writeBit(tmp, 64);
 
 	writeRemainingBit();
 
 	fclose(rw.wFile);
-
-	//approach with fstream
-
 
 }

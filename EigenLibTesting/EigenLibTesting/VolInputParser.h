@@ -5,7 +5,7 @@
 #include <iostream>
 #include <fstream>
 #include "TensorOperations.h"
-
+#include <intrin.h>
 
 class VolInputParser
 {
@@ -15,6 +15,7 @@ public:
 	{
 		uint64_t wbyte = 0; //store for 8 byte
 		int numWBit = 63; //indicates free bit
+		int vergWBit = 0;
 
 		FILE * wFile;
 	}rw;
