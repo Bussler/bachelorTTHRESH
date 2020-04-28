@@ -168,6 +168,16 @@ void TensorOperations::decompress_HOSVD(Eigen::Tensor<myTensorType, 3> B, Eigen:
 	}
 }
 
+//TODO
+Eigen::Tensor<myTensorType, 3> TensorOperations::createTensorFromArray(myTensorType * data, int d1, int d2, int d3)
+{
+	Eigen::Tensor<myTensorType, 3> t;
+	//Eigen::TensorMap<myTensorType, 3> mymap(data, 1, 2, 3);
+	//t= Eigen::TensorMap<myTensorType, 3>(data, d1, d2, d3);
+
+	return t;
+}
+
 //calculates i-th slice of tensor in dimension dim
 Eigen::MatrixXd TensorOperations::getSlice(Eigen::Tensor<myTensorType, 3> T, int dim, int i)
 {

@@ -15,7 +15,7 @@ unsigned * TTHRESHEncoding::getBits(uint64_t* n, int k, int numBits)
 }
 
 //encode the coefficients with the help of rle/verbatim until error is below given threshold. Results are safed in rle and raw vectors
-void TTHRESHEncoding::encodeRLE(double * c, int numC, double errorTarget, std::vector<std::vector<int>>& rle, std::vector<std::vector<int>>& raw, double& scale)
+void TTHRESHEncoding::encodeRLE(double * c, int numC, double errorTarget, std::vector<std::vector<int>>& rle, std::vector<std::vector<bool>>& raw, double& scale, std::vector<bool>& signs)
 {
 	double max = 0;
 	for (int i = 0;i < numC;i++) {
@@ -45,7 +45,7 @@ void TTHRESHEncoding::encodeRLE(double * c, int numC, double errorTarget, std::v
 	
 	for (int p = 63;p >= 0; p--) {//running through bit-planes
 
-		std::vector<int> cRaw; //TODO encode and SAVE single bits only! not as ints
+		std::vector<bool> cRaw;
 		std::vector<int> cRLE;
 		int run = 0;
 		int planeOnes = 0;//sse is reduced by each 1 in plane
@@ -70,7 +70,7 @@ void TTHRESHEncoding::encodeRLE(double * c, int numC, double errorTarget, std::v
 
 			}
 			else {//is active, verbatim enociding
-				cRaw.push_back(curBit);
+				cRaw.push_back(curBit>0);
 			}
 
 			if (curBit == 1) {//update sse and check for exit condition
@@ -104,13 +104,20 @@ void TTHRESHEncoding::encodeRLE(double * c, int numC, double errorTarget, std::v
 		}
 	}
 
+	scale = scaleK; //saving scale factor
+	
+	//saving signs
+	for (int i = 0;i < numC;i++) {
+		if (mask[i] > 0)
+			signs.push_back(c[i] < 0); //if bit is set, the sign is negative
+	}
 
-	scale = scaleK;
-	//TODO: Vorzeichen, Scale speichern!
+
+	//TODO: Sizes der rle, raw vectoren speichern um wieder korrekt daten auslesen zu können
 
 }
 
-double * TTHRESHEncoding::decodeRLE(std::vector<std::vector<int>> rle, std::vector<std::vector<int>> raw, int numC, double scale)
+double * TTHRESHEncoding::decodeRLE(std::vector<std::vector<int>> rle, std::vector<std::vector<bool>> raw, int numC, double scale, std::vector<bool> signs)
 {
 	//convert back from rle/verbatim
 	std::vector<uint64_t> mask(numC, 0);//holds the bits for coefficients
@@ -142,7 +149,7 @@ double * TTHRESHEncoding::decodeRLE(std::vector<std::vector<int>> rle, std::vect
 
 			}
 			else {//verbatim encoding 
-				if (raw[vecCount][verbCount]==1) {
+				if (raw[vecCount][verbCount]==true) {//==1
 					mask[co] |= (unsigned long long(1) << p); //encode 1
 				}
 				verbCount++;
@@ -162,19 +169,21 @@ double * TTHRESHEncoding::decodeRLE(std::vector<std::vector<int>> rle, std::vect
 		}
 	}
 
-	//scale back into original double values
+	//scale back into original double values, apply signs
+	int signCount = 0;
 	double * c = (double *) malloc(sizeof(double)*numC);
 	for (int co = 0; co < numC; co++) {
 		c[co] = double(mask[co] / scale);
-	}
 
-	//TODO: signs
+		if (c[co] > 0 && signs[signCount++])//we apply a sign here, since coefficient is active
+			c[co] *= (-1);
+	}
 
 	return c;
 }
 
 //convert sse according to specified errorType and starts the rle/verbatim encoding process
-void TTHRESHEncoding::compress(double * coefficients, int numC, double errorTarget, ErrorType etype, std::vector<std::vector<int>>& rle, std::vector<std::vector<int>>& raw, double& scale)
+void TTHRESHEncoding::compress(double * coefficients, int numC, double errorTarget, ErrorType etype, std::vector<std::vector<int>>& rle, std::vector<std::vector<bool>>& raw, double& scale, std::vector<bool>& signs)
 {
 	//convert sse according to target error
 
@@ -199,6 +208,6 @@ void TTHRESHEncoding::compress(double * coefficients, int numC, double errorTarg
 
 	double convertedError = sqrt(sse) / dataNorm;
 
-	encodeRLE(coefficients, numC, convertedError,rle, raw,scale);
+	encodeRLE(coefficients, numC, convertedError,rle, raw,scale, signs);
 
 }
