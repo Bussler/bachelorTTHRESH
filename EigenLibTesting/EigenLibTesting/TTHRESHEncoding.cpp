@@ -211,3 +211,21 @@ void TTHRESHEncoding::compress(double * coefficients, int numC, double errorTarg
 	encodeRLE(coefficients, numC, convertedError,rle, raw,scale, signs);
 
 }
+
+//encode the rle with AC Bit-Plane wise
+std::vector<uint64_t> TTHRESHEncoding::encodeAC(std::vector<int> rle)
+{
+	//creating frequency/Interval Table
+	std::map<uint64_t, std::pair<uint64_t, uint64_t>> freq;// key -> (count of key, lower bound Interval)
+	for (int i = 0; i < rle.size(); i++) {
+		freq[rle[i]].first += 1; //count the occurences of the key
+	}
+
+	uint64_t count = 0;
+	for (auto it = freq.begin(); it != freq.end(); it++) {//calculate the probabilities and size of interval
+		(it->second).second = count;
+		count += ((it->second).first) / rle.size();//map to interval (0,1]
+	}
+
+	return std::vector<uint64_t>();
+}

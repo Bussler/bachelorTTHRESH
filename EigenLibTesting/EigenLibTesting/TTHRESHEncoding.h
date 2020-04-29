@@ -3,6 +3,7 @@
 #include <fstream>
 #include <vector>
 #include <math.h>
+#include <map>
 
 
 namespace TTHRESHEncoding {
@@ -20,6 +21,8 @@ namespace TTHRESHEncoding {
 	double* decodeRLE(std::vector<std::vector<int>> rle, std::vector<std::vector<bool>> raw, int numC, double scale, std::vector<bool> signs);
 	
 	void compress(double * coefficients, int numC, double errorTarget, ErrorType etype, std::vector<std::vector<int>> & rle, std::vector<std::vector<bool>>& raw, double& scale, std::vector<bool>& signs);
+
+	std::vector<uint64_t> encodeAC(std::vector<int> rle);
 
 }
 

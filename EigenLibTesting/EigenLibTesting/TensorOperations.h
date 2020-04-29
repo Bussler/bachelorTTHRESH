@@ -23,7 +23,8 @@ public:
 
 	static void decompress_HOSVD(Eigen::Tensor<myTensorType, 3> B, Eigen::Tensor<myTensorType, 3>& T, std::vector<Eigen::MatrixXd> Us);
 
-	static Eigen::Tensor<myTensorType, 3> createTensorFromArray(double* data, int d1, int d2, int d3);
+	static Eigen::Tensor<myTensorType, 3> createTensorFromArray(myTensorType* data, int d1, int d2, int d3);
+	static Eigen::MatrixXd createMatrixFromArray(double* data, int d1, int d2);
 
 	static Eigen::MatrixXd getSlice(Eigen::Tensor<myTensorType, 3> T, int dim, int i);
 };

@@ -168,15 +168,21 @@ void TensorOperations::decompress_HOSVD(Eigen::Tensor<myTensorType, 3> B, Eigen:
 	}
 }
 
-//TODO
+//convert array back to Eigen::Tensor Type for further use (Core Tensor)
 Eigen::Tensor<myTensorType, 3> TensorOperations::createTensorFromArray(myTensorType * data, int d1, int d2, int d3)
 {
-	Eigen::Tensor<myTensorType, 3> t;
-	//Eigen::TensorMap<myTensorType, 3> mymap(data, 1, 2, 3);
-	//t= Eigen::TensorMap<myTensorType, 3>(data, d1, d2, d3);
-
+	Eigen::Tensor<myTensorType, 3> t = Eigen::TensorMap<Eigen::Tensor<myTensorType, 3>>(data, d1, d2, d3);;
 	return t;
 }
+
+//convert array back to Eigen::Matrix Type for further use (Factor Matrizes)
+Eigen::MatrixXd TensorOperations::createMatrixFromArray(double* data, int d1, int d2)
+{
+	Eigen::MatrixXd m = Eigen::Map<Eigen::MatrixXd>(data, d1, d2);
+	return m;
+}
+
+
 
 //calculates i-th slice of tensor in dimension dim
 Eigen::MatrixXd TensorOperations::getSlice(Eigen::Tensor<myTensorType, 3> T, int dim, int i)
@@ -205,9 +211,3 @@ Eigen::MatrixXd TensorOperations::getSlice(Eigen::Tensor<myTensorType, 3> T, int
 	*/
 	return slice;
 }
-
-/*template<typename Scalar, int rank, typename sizeType>
-auto Tensor_to_Matrix(const Eigen::Tensor<Scalar, rank> tensor, const sizeType rows, const sizeType cols)
-{
-	return Eigen::Map<const MatrixType<Scalar>>(tensor.data(), rows, cols);
-}*/
