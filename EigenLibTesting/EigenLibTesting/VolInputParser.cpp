@@ -117,6 +117,7 @@ void VolInputParser::writeData(unsigned char * data, int numBytes)
 
 void VolInputParser::writeBit(uint64_t bits, int numBits)
 {
+
 	if (numBits+rw.vergWBit <= 64) {//we have free bit, just write them in TODO -1?
 		rw.wbyte |= bits << (rw.vergWBit);
 		rw.vergWBit += numBits;
@@ -142,6 +143,38 @@ void VolInputParser::writeRemainingBit()
 		writeData((unsigned char *)& rw.wbyte, sizeof(rw.wbyte));
 	}
 
+}
+
+void VolInputParser::readData(uint8_t * buf, int numBytes)
+{
+	fread(buf, 1, numBytes, rw.rFile);
+}
+
+uint64_t VolInputParser::readBit(int numBits)
+{
+	uint64_t result = 0;
+	if (numBits+rw.readRBit <=64) {//we haven't read everything from the buffer
+		int amtShift = 64 - numBits - rw.readRBit;
+		result |= rw.rbyte << amtShift >> (amtShift + rw.readRBit);
+		rw.readRBit += numBits;
+	}
+	else {
+		if (rw.readRBit < 64) { //links rein
+			int amtShift = 63 - numBits - rw.readRBit;
+			result |= rw.rbyte << amtShift >> (amtShift + rw.readRBit);
+		}
+
+		readData((uint8_t *)& rw.rbyte, sizeof(rw.rbyte));
+
+		numBits -= 64 - rw.readRBit;
+		
+		int amtShift = 64 - numBits - 0;
+		result |= rw.rbyte << amtShift >> (amtShift + 0) << (64-rw.readRBit);//shift to the amount of already read in data
+
+		rw.readRBit = 0 + numBits;
+	}
+
+	return result;
 }
 
 

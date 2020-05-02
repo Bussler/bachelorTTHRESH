@@ -7,6 +7,7 @@
 #include "TensorOperations.h"
 #include <intrin.h>
 
+
 class VolInputParser
 {
 public:
@@ -14,10 +15,13 @@ public:
 	struct ReadWriteWrapper
 	{
 		uint64_t wbyte = 0; //store for 8 byte
-		int numWBit = 63; //indicates free bit
+		uint64_t rbyte = 0;
+		//int numWBit = 63; //indicates free bit
 		int vergWBit = 0;
+		int readRBit = 64;
 
 		FILE * wFile;
+		FILE * rFile;
 	}rw;
 
 	VolInputParser();
@@ -34,6 +38,9 @@ public:
 	void writeData(unsigned char* data, int numBytes);
 	void writeBit(uint64_t bits, int numBits);
 	void writeRemainingBit();
+
+	void readData(uint8_t * buf, int numBytes);
+	uint64_t readBit(int numBits);
 
 	void writeCharacteristicData(int dim1, int dim2, int dim3, double scale);
 

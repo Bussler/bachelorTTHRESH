@@ -2,6 +2,13 @@
 #include <fstream>
 #define _USE_MATH_DEFINES
 
+//Thresholds for the AC algorithm
+int TTHRESHEncoding::ACValueBits = 32;
+uint64_t TTHRESHEncoding::max = (unsigned long long(1) << TTHRESHEncoding::ACValueBits) - 1;//high value of range, can only decrease
+uint64_t TTHRESHEncoding::oneFourth = (TTHRESHEncoding::max + 1) / 4;
+uint64_t TTHRESHEncoding::half = (TTHRESHEncoding::max + 1) / 2;
+uint64_t TTHRESHEncoding::threeFourth = TTHRESHEncoding::oneFourth * 3;
+
 //stores the k-th bit of all n in bit-array
 unsigned * TTHRESHEncoding::getBits(uint64_t* n, int k, int numBits)
 {
@@ -14,7 +21,7 @@ unsigned * TTHRESHEncoding::getBits(uint64_t* n, int k, int numBits)
 	return bits;
 }
 
-//encode the coefficients with the help of rle/verbatim until error is below given threshold. Results are safed in rle and raw vectors
+//encode the coefficients with the help of rle/verbatim until error is below given threshold. Results are safed in rle and raw vectors: Taken from rballester Github
 void TTHRESHEncoding::encodeRLE(double * c, int numC, double errorTarget, std::vector<std::vector<int>>& rle, std::vector<std::vector<bool>>& raw, double& scale, std::vector<bool>& signs)
 {
 	double max = 0;
@@ -212,10 +219,10 @@ void TTHRESHEncoding::compress(double * coefficients, int numC, double errorTarg
 
 }
 
-//encode the rle with AC Bit-Plane wise
-std::vector<uint64_t> TTHRESHEncoding::encodeAC(std::vector<int> rle)
+//encode the rle with AC Bit-Plane wise: Taken from rballester Github
+void TTHRESHEncoding::encodeAC(std::vector<int> rle, VolInputParser& inParser)
 {
-	//creating frequency/Interval Table
+	//creating frequency/Interval Table : The model
 	std::map<uint64_t, std::pair<uint64_t, uint64_t>> freq;// key -> (count of key, lower bound Interval)
 	for (int i = 0; i < rle.size(); i++) {
 		freq[rle[i]].first += 1; //count the occurences of the key
@@ -224,8 +231,102 @@ std::vector<uint64_t> TTHRESHEncoding::encodeAC(std::vector<int> rle)
 	uint64_t count = 0;
 	for (auto it = freq.begin(); it != freq.end(); it++) {//calculate the probabilities and size of interval
 		(it->second).second = count;
-		count += ((it->second).first) / rle.size();//map to interval (0,1]
+		count += ((it->second).first);// integer arithmetic, so don't map to [0,1)
+		std::cout << "Key: " << it->first << " Prob: " << (it->second).first<<std::endl;
 	}
 
-	return std::vector<uint64_t>();
+	//saving the model for later decode
+	uint64_t freqSize = freq.size();
+	std::cout << "FreqSize: " << freqSize << std::endl;
+	inParser.writeBit(freqSize, 64);
+
+	for (auto it = freq.begin(); it != freq.end(); it++) {
+		uint64_t key = it->first;
+		uint64_t prob = (it->second).first;
+
+		inParser.writeBit(key, 32);//save key and frequenzy with 32 bit
+		inParser.writeBit(prob, 32);
+	}
+
+	//after model is built, encode input
+	int pendingBits = 0; //Counter to store pending bits when low and high are converging
+	uint64_t low = 0; //low limit for interval, can only increase
+	uint64_t high = max; //high limit for interval, can only decrease
+
+	for (int i = 0;i < rle.size();i++) {
+		uint64_t cur = rle[i];
+
+		uint64_t probHigh = freq[cur].second + freq[cur].first;//gets top interval Value
+		uint64_t probLow = freq[cur].second;//gets bottom interval value
+
+		uint64_t newRange = high - low + 1; //current subset
+		high = low + (newRange*probHigh / rle.size()) - 1; //progressive subdividing of range
+		low = low + (newRange*probLow / rle.size()) - 1;
+
+		while (true) {
+
+			if (high<half) {//MSB==0
+				putBitPlusPending(0,pendingBits,inParser);
+			}
+			else if (low >= half) {//MSB==1
+				putBitPlusPending(1, pendingBits, inParser);
+			}
+			else if (low>=oneFourth && high<threeFourth) {//converging
+				pendingBits++;
+				low -= oneFourth;
+				high -= oneFourth;
+			}
+			else
+			{
+				break;
+			}
+
+			//TODO Shifting korrekt?
+			high <<= 1;
+			high++;
+			low <<= 1;
+			high &= max;
+			low &= max;
+
+		}
+
+	}
+
+	pendingBits++;
+	if (low < oneFourth) {
+		putBitPlusPending(0, pendingBits, inParser);
+	}
+	else {
+		putBitPlusPending(1, pendingBits, inParser);
+	}
+
+	//Write trailing 0s
+	inParser.writeBit(0, ACValueBits - 2);
+}
+
+void TTHRESHEncoding::putBitPlusPending(bool bit, int & pending, VolInputParser& inParser)
+{
+	inParser.writeBit(bit,1);
+	for (int i = 0;i < pending;i++) {
+		inParser.writeBit(!bit,1);
+	}
+	pending = 0;
+}
+
+void TTHRESHEncoding::decodeAC(std::vector<int>& rle, VolInputParser & inParser)
+{
+	//read and recreate the saved frequenzy table
+	uint64_t freqSize = inParser.readBit(64); //table size safed with 64 bit
+
+	std::cout << "Decoded Size: " << freqSize << std::endl;
+
+	std::map<uint64_t, uint64_t> freq;// key -> lower frequenzy
+	
+	for (int i = 0;i < freqSize;i++) {
+		uint64_t key = inParser.readBit(32);
+		uint64_t prob = inParser.readBit(32);
+
+		std::cout << "Decoded Key: " << key << " Prob: " << prob << std::endl;
+	}
+
 }
