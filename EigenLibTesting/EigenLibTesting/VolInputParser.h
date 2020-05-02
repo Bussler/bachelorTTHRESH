@@ -16,7 +16,10 @@ public:
 	{
 		uint64_t wbyte = 0; //store for 8 byte
 		uint64_t rbyte = 0;
-		//int numWBit = 63; //indicates free bit
+
+		int numWBit = 63; //indicates free bit
+		int numRBit = -1;
+
 		int vergWBit = 0;
 		int readRBit = 64;
 
@@ -44,5 +47,9 @@ public:
 
 	void writeCharacteristicData(int dim1, int dim2, int dim3, double scale);
 
+
+	/*void writeBit2(uint64_t bits, int numBits);
+	void writeRemainingBit2();
+	uint64_t read_bits2(int to_read);*/
 };
 

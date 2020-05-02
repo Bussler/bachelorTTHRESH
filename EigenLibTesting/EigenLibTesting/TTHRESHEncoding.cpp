@@ -6,7 +6,7 @@
 int TTHRESHEncoding::ACValueBits = 32;
 uint64_t TTHRESHEncoding::max = (unsigned long long(1) << TTHRESHEncoding::ACValueBits) - 1;//high value of range, can only decrease
 uint64_t TTHRESHEncoding::oneFourth = (TTHRESHEncoding::max + 1) / 4;
-uint64_t TTHRESHEncoding::half = (TTHRESHEncoding::max + 1) / 2;
+uint64_t TTHRESHEncoding::half = TTHRESHEncoding::oneFourth*2;
 uint64_t TTHRESHEncoding::threeFourth = TTHRESHEncoding::oneFourth * 3;
 
 //stores the k-th bit of all n in bit-array
@@ -232,12 +232,11 @@ void TTHRESHEncoding::encodeAC(std::vector<int> rle, VolInputParser& inParser)
 	for (auto it = freq.begin(); it != freq.end(); it++) {//calculate the probabilities and size of interval
 		(it->second).second = count;
 		count += ((it->second).first);// integer arithmetic, so don't map to [0,1)
-		std::cout << "Key: " << it->first << " Prob: " << (it->second).first<<std::endl;
+		//std::cout << "Key: " << it->first << " Prob: " << (it->second).second<<std::endl;
 	}
 
 	//saving the model for later decode
 	uint64_t freqSize = freq.size();
-	std::cout << "FreqSize: " << freqSize << std::endl;
 	inParser.writeBit(freqSize, 64);
 
 	for (auto it = freq.begin(); it != freq.end(); it++) {
@@ -247,6 +246,9 @@ void TTHRESHEncoding::encodeAC(std::vector<int> rle, VolInputParser& inParser)
 		inParser.writeBit(key, 32);//save key and frequenzy with 32 bit
 		inParser.writeBit(prob, 32);
 	}
+
+	uint64_t rleSize = rle.size();
+	inParser.writeBit(rleSize, 64);//save the number of symbols to encode
 
 	//after model is built, encode input
 	int pendingBits = 0; //Counter to store pending bits when low and high are converging
@@ -260,8 +262,8 @@ void TTHRESHEncoding::encodeAC(std::vector<int> rle, VolInputParser& inParser)
 		uint64_t probLow = freq[cur].second;//gets bottom interval value
 
 		uint64_t newRange = high - low + 1; //current subset
-		high = low + (newRange*probHigh / rle.size()) - 1; //progressive subdividing of range
-		low = low + (newRange*probLow / rle.size()) - 1;
+		high = low + (newRange*probHigh / rle.size()) -1; //progressive subdividing of range
+		low = low + (newRange*probLow / rle.size());
 
 		while (true) {
 
@@ -281,9 +283,8 @@ void TTHRESHEncoding::encodeAC(std::vector<int> rle, VolInputParser& inParser)
 				break;
 			}
 
-			//TODO Shifting korrekt?
 			high <<= 1;
-			high++;
+			high++;//high: never ending stream of ones, low: stream of zeroes
 			low <<= 1;
 			high &= max;
 			low &= max;
@@ -313,20 +314,82 @@ void TTHRESHEncoding::putBitPlusPending(bool bit, int & pending, VolInputParser&
 	pending = 0;
 }
 
+//decode algorithm of ac: taken from rballester Github
 void TTHRESHEncoding::decodeAC(std::vector<int>& rle, VolInputParser & inParser)
 {
 	//read and recreate the saved frequenzy table
 	uint64_t freqSize = inParser.readBit(64); //table size safed with 64 bit
 
-	std::cout << "Decoded Size: " << freqSize << std::endl;
+	std::map<uint64_t, uint64_t> freq;//lower frequenzy -> key
+	uint64_t count = 0;
 
-	std::map<uint64_t, uint64_t> freq;// key -> lower frequenzy
-	
 	for (int i = 0;i < freqSize;i++) {
 		uint64_t key = inParser.readBit(32);
 		uint64_t prob = inParser.readBit(32);
+		
+		freq[count] = key;
+		std::cout << "Key: " << key << " Prob: " << count<<std::endl;
+		count += prob;
+	}
 
-		std::cout << "Decoded Key: " << key << " Prob: " << prob << std::endl;
+	uint64_t rleSize = inParser.readBit(64);
+	freq[rleSize] = 0;//we need another upper bound
+
+	//decoding
+	uint64_t high = max;
+	uint64_t low = 0;
+	uint64_t val = 0;//= inParser.readBit(ACValueBits); //encoded value to decode
+	for (int i = 0;i < ACValueBits;i++) { //TODO problem with little endian read in, instead shift all bit one by one
+		val <<= 1;
+		val += inParser.readBit(1) ? 1 : 0;
+	}
+
+	while (true) {
+
+		uint64_t range = high - low + 1;
+		uint64_t scaledVal = ((val-low+1)*rleSize-1)/range;
+
+		auto it = freq.upper_bound(scaledVal);
+		uint64_t pHigh = it->first;//high bound of interval
+		it--;
+		uint64_t pLow = it->first;//low bound of interval
+
+		rle.push_back(int(it->second));//save the key, the decoded signal
+
+		high = low + (range*pHigh) / rleSize - 1;
+		low = low + (range*pLow) / rleSize;
+
+		while (true) {
+
+			if (high<half) {//bit is 0
+
+			}
+			else if (low>=half) {
+				val -= half;
+				low -= half;
+				high -= half;
+			}
+			else if (low >= oneFourth && high < threeFourth) {
+				val -= oneFourth;
+				low -= oneFourth;
+				high -= oneFourth;
+			}
+			else {
+				break;
+			}
+
+			low <<= 1;
+			high <<= 1;
+			high++;//high: never ending stream of ones
+			val <<= 1;
+			val += inParser.readBit(1) ? 1 : 0;
+
+		}
+
+		if (rle.size()== rleSize) {//we have all our decoded symbols
+			break;
+		}
+
 	}
 
 }

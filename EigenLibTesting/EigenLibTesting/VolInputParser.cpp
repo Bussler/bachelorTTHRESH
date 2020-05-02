@@ -82,8 +82,8 @@ void VolInputParser::writeData(unsigned char * data, int numBytes)
 }
 
 
-//method to safe data bitwise //TODO von vorne nach hinten also 63...0 bit codieren nicht anders herum!
-/*void VolInputParser::writeBit(uint64_t bits, int numBits)
+/*//method to safe data bitwise //TODO von vorne nach hinten also 63...0 bit codieren nicht anders herum!
+void VolInputParser::writeBit2(uint64_t bits, int numBits)
 {
 	if (numBits<=rw.numWBit+1) {//we have free bit, just write them in
 		rw.wbyte |= (bits << ((rw.numWBit + 1)-numBits));
@@ -103,9 +103,9 @@ void VolInputParser::writeData(unsigned char * data, int numBytes)
 		rw.wbyte |= (bits << (64 - numBits));
 		rw.numWBit = 63 - numBits;
 	}
-}*/
+}
 
-/*void VolInputParser::writeRemainingBit()
+void VolInputParser::writeRemainingBit2()
 {
 	if (rw.numWBit < 63) {
 		//unsigned __int64 swapped = _byteswap_uint64(rw.wbyte);
@@ -113,6 +113,23 @@ void VolInputParser::writeData(unsigned char * data, int numBytes)
 		writeData((unsigned char *)& rw.wbyte, sizeof(rw.wbyte));
 	}
 
+}
+
+uint64_t VolInputParser::read_bits2(int to_read) {
+    uint64_t result = 0;
+    if (to_read <= rw.numRBit+1) {
+        result = rw.rbyte << (63-rw.numRBit) >> (64-to_read);
+		rw.numRBit -= to_read;
+    }
+    else {
+        if (rw.numRBit > -1)
+            result = rw.rbyte << (64- rw.numRBit-1) >> (64-to_read);
+        readData(reinterpret_cast<uint8_t *> (&rw.rbyte), sizeof(rw.rbyte));
+        to_read -= rw.numRBit +1;
+        result |= rw.numRBit >> (64-to_read);
+		rw.numRBit = 63-to_read;
+    }
+    return result;
 }*/
 
 void VolInputParser::writeBit(uint64_t bits, int numBits)
