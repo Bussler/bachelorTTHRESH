@@ -46,7 +46,7 @@ public:
 	uint64_t readBit(int numBits);
 
 	void writeCharacteristicData(int dim1, int dim2, int dim3, double scale);
-
+	void writeACData(std::vector<std::vector<int>> rle);
 
 	/*void writeBit2(uint64_t bits, int numBits);
 	void writeRemainingBit2();

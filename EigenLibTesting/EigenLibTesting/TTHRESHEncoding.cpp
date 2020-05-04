@@ -292,7 +292,7 @@ void TTHRESHEncoding::encodeAC(std::vector<int> rle, VolInputParser& inParser)
 		}
 
 	}
-
+	
 	pendingBits++;
 	if (low < oneFourth) {
 		putBitPlusPending(0, pendingBits, inParser);
@@ -302,7 +302,7 @@ void TTHRESHEncoding::encodeAC(std::vector<int> rle, VolInputParser& inParser)
 	}
 
 	//Write trailing 0s
-	inParser.writeBit(0, ACValueBits - 2);
+	inParser.writeBit(0, ACValueBits- 2);
 }
 
 void TTHRESHEncoding::putBitPlusPending(bool bit, int & pending, VolInputParser& inParser)
@@ -328,7 +328,7 @@ void TTHRESHEncoding::decodeAC(std::vector<int>& rle, VolInputParser & inParser)
 		uint64_t prob = inParser.readBit(32);
 		
 		freq[count] = key;
-		std::cout << "Key: " << key << " Prob: " << count<<std::endl;
+		//std::cout << "Key: " << key << " Prob: " << count<<std::endl;
 		count += prob;
 	}
 

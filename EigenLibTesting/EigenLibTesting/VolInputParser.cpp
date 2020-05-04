@@ -213,3 +213,4 @@ void VolInputParser::writeCharacteristicData(int dim1, int dim2, int dim3, doubl
 	fclose(rw.wFile);
 
 }
+
