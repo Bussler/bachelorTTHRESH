@@ -115,7 +115,7 @@ void VolInputParser::writeRemainingBit2()
 
 }
 
-uint64_t VolInputParser::read_bits2(int to_read) {
+uint64_t VolInputParser::readBit2(int to_read) {
     uint64_t result = 0;
     if (to_read <= rw.numRBit+1) {
         result = rw.rbyte << (63-rw.numRBit) >> (64-to_read);
@@ -176,9 +176,8 @@ uint64_t VolInputParser::readBit(int numBits)
 		rw.readRBit += numBits;
 	}
 	else {
-		if (rw.readRBit < 64) { //links rein
-			int amtShift = 63 - numBits - rw.readRBit;
-			result |= rw.rbyte << amtShift >> (amtShift + rw.readRBit);
+		if (rw.readRBit < 64) { //read as much as possible
+			result |= rw.rbyte >> rw.readRBit;
 		}
 
 		readData((uint8_t *)& rw.rbyte, sizeof(rw.rbyte));

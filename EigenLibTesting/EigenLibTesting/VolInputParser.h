@@ -50,6 +50,6 @@ public:
 
 	/*void writeBit2(uint64_t bits, int numBits);
 	void writeRemainingBit2();
-	uint64_t read_bits2(int to_read);*/
+	uint64_t readBit2(int to_read);*/
 };
 

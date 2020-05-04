@@ -232,7 +232,6 @@ void TTHRESHEncoding::encodeAC(std::vector<int> rle, VolInputParser& inParser)
 	for (auto it = freq.begin(); it != freq.end(); it++) {//calculate the probabilities and size of interval
 		(it->second).second = count;
 		count += ((it->second).first);// integer arithmetic, so don't map to [0,1)
-		//std::cout << "Key: " << it->first << " Prob: " << (it->second).second<<std::endl;
 	}
 
 	//saving the model for later decode
@@ -328,11 +327,18 @@ void TTHRESHEncoding::decodeAC(std::vector<int>& rle, VolInputParser & inParser)
 		uint64_t prob = inParser.readBit(32);
 		
 		freq[count] = key;
-		//std::cout << "Key: " << key << " Prob: " << count<<std::endl;
 		count += prob;
 	}
 
 	uint64_t rleSize = inParser.readBit(64);
+	if (rleSize == 0) {//TODO special case if we encoded a rle with size 0
+		for (int i = 0;i < ACValueBits;i++) {
+			int h=inParser.readBit(1);
+		}
+		std::cout << "haha";
+		return;
+	}
+
 	freq[rleSize] = 0;//we need another upper bound
 
 	//decoding
