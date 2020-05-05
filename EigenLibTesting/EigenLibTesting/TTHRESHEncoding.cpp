@@ -220,7 +220,7 @@ void TTHRESHEncoding::compress(double * coefficients, int numC, double errorTarg
 }
 
 //encode the rle with AC Bit-Plane wise: Taken from rballester Github
-void TTHRESHEncoding::encodeAC(std::vector<int> rle, VolInputParser& inParser)
+void TTHRESHEncoding::encodeAC(std::vector<int> rle)
 {
 	//creating frequency/Interval Table : The model
 	std::map<uint64_t, std::pair<uint64_t, uint64_t>> freq;// key -> (count of key, lower bound Interval)
@@ -236,18 +236,18 @@ void TTHRESHEncoding::encodeAC(std::vector<int> rle, VolInputParser& inParser)
 
 	//saving the model for later decode
 	uint64_t freqSize = freq.size();
-	inParser.writeBit(freqSize, 64);
+	BitIO::writeBit(freqSize, 64);
 
 	for (auto it = freq.begin(); it != freq.end(); it++) {
 		uint64_t key = it->first;
 		uint64_t prob = (it->second).first;
 
-		inParser.writeBit(key, 32);//save key and frequenzy with 32 bit
-		inParser.writeBit(prob, 32);
+		BitIO::writeBit(key, 32);//save key and frequenzy with 32 bit
+		BitIO::writeBit(prob, 32);
 	}
 
 	uint64_t rleSize = rle.size();
-	inParser.writeBit(rleSize, 64);//save the number of symbols to encode
+	BitIO::writeBit(rleSize, 64);//save the number of symbols to encode
 
 	//after model is built, encode input
 	int pendingBits = 0; //Counter to store pending bits when low and high are converging
@@ -267,10 +267,10 @@ void TTHRESHEncoding::encodeAC(std::vector<int> rle, VolInputParser& inParser)
 		while (true) {
 
 			if (high<half) {//MSB==0
-				putBitPlusPending(0,pendingBits,inParser);
+				putBitPlusPending(0,pendingBits);
 			}
 			else if (low >= half) {//MSB==1
-				putBitPlusPending(1, pendingBits, inParser);
+				putBitPlusPending(1, pendingBits);
 			}
 			else if (low>=oneFourth && high<threeFourth) {//converging
 				pendingBits++;
@@ -294,48 +294,47 @@ void TTHRESHEncoding::encodeAC(std::vector<int> rle, VolInputParser& inParser)
 	
 	pendingBits++;
 	if (low < oneFourth) {
-		putBitPlusPending(0, pendingBits, inParser);
+		putBitPlusPending(0, pendingBits);
 	}
 	else {
-		putBitPlusPending(1, pendingBits, inParser);
+		putBitPlusPending(1, pendingBits);
 	}
 
 	//Write trailing 0s
-	inParser.writeBit(0, ACValueBits- 2);
+	BitIO::writeBit(0, ACValueBits- 2);
 }
 
-void TTHRESHEncoding::putBitPlusPending(bool bit, int & pending, VolInputParser& inParser)
+void TTHRESHEncoding::putBitPlusPending(bool bit, int & pending)
 {
-	inParser.writeBit(bit,1);
+	BitIO::writeBit(bit,1);
 	for (int i = 0;i < pending;i++) {
-		inParser.writeBit(!bit,1);
+		BitIO::writeBit(!bit,1);
 	}
 	pending = 0;
 }
 
 //decode algorithm of ac: taken from rballester Github
-void TTHRESHEncoding::decodeAC(std::vector<int>& rle, VolInputParser & inParser)
+void TTHRESHEncoding::decodeAC(std::vector<int>& rle)
 {
 	//read and recreate the saved frequenzy table
-	uint64_t freqSize = inParser.readBit(64); //table size safed with 64 bit
+	uint64_t freqSize = BitIO::readBit(64); //table size safed with 64 bit
 
 	std::map<uint64_t, uint64_t> freq;//lower frequenzy -> key
 	uint64_t count = 0;
 
 	for (int i = 0;i < freqSize;i++) {
-		uint64_t key = inParser.readBit(32);
-		uint64_t prob = inParser.readBit(32);
+		uint64_t key = BitIO::readBit(32);
+		uint64_t prob = BitIO::readBit(32);
 		
 		freq[count] = key;
 		count += prob;
 	}
 
-	uint64_t rleSize = inParser.readBit(64);
+	uint64_t rleSize = BitIO::readBit(64);
 	if (rleSize == 0) {//TODO special case if we encoded a rle with size 0
 		for (int i = 0;i < ACValueBits;i++) {
-			int h=inParser.readBit(1);
+			int h= BitIO::readBit(1);
 		}
-		std::cout << "haha";
 		return;
 	}
 
@@ -347,7 +346,7 @@ void TTHRESHEncoding::decodeAC(std::vector<int>& rle, VolInputParser & inParser)
 	uint64_t val = 0;//= inParser.readBit(ACValueBits); //encoded value to decode
 	for (int i = 0;i < ACValueBits;i++) { //TODO problem with little endian read in, instead shift all bit one by one
 		val <<= 1;
-		val += inParser.readBit(1) ? 1 : 0;
+		val += BitIO::readBit(1) ? 1 : 0;
 	}
 
 	while (true) {
@@ -388,7 +387,7 @@ void TTHRESHEncoding::decodeAC(std::vector<int>& rle, VolInputParser & inParser)
 			high <<= 1;
 			high++;//high: never ending stream of ones
 			val <<= 1;
-			val += inParser.readBit(1) ? 1 : 0;
+			val += BitIO::readBit(1) ? 1 : 0;
 
 		}
 

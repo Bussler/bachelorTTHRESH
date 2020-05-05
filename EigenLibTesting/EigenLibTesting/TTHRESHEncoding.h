@@ -30,10 +30,10 @@ namespace TTHRESHEncoding {
 	void compress(double * coefficients, int numC, double errorTarget, ErrorType etype, std::vector<std::vector<int>> & rle, std::vector<std::vector<bool>>& raw, double& scale, std::vector<bool>& signs);
 
 	//TODO überarbeiten! decode...
-	void encodeAC(std::vector<int> rle, VolInputParser& inParser);
-	void putBitPlusPending(bool bit, int& pending, VolInputParser& inParser);
+	void encodeAC(std::vector<int> rle);
+	void putBitPlusPending(bool bit, int& pending);
 
-	void decodeAC(std::vector<int>& rle, VolInputParser& inParser);
+	void decodeAC(std::vector<int>& rle);
 
 }
 

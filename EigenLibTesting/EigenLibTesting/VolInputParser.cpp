@@ -1,6 +1,113 @@
 #include "VolInputParser.h"
 #pragma warning(disable : 4996)
 
+struct BitIO::RWWrapper {
+
+	uint64_t wbyte = 0; //store for 8 byte
+	uint64_t rbyte = 0;
+
+	int numWBit = 63; //indicates free bit
+	int numRBit = -1;
+
+	int vergWBit = 0;
+	int readRBit = 64;
+
+	FILE * wFile;
+	FILE * rFile;
+
+}BitIO::rw;
+
+void BitIO::writeData(unsigned char * data, int numBytes)
+{
+	fwrite(data, 1, numBytes, rw.wFile); //writes numBytes byte(char) into file
+}
+
+void BitIO::writeBit(uint64_t bits, int numBits)
+{
+
+	if (numBits + rw.vergWBit <= 64) {//we have free bit, just write them in
+		rw.wbyte |= bits << (rw.vergWBit);
+		rw.vergWBit += numBits;
+	}
+	else {// write as many bit as we can, store the rest again
+
+		if (rw.vergWBit < 64) {//if there is still something free, squeeze it in
+			rw.wbyte |= (bits << (rw.vergWBit));
+		}
+
+		writeData((unsigned char *)& rw.wbyte, sizeof(rw.wbyte));
+
+		numBits -= 64 - rw.vergWBit;
+		rw.wbyte = 0;
+		rw.wbyte |= (bits >> (64 - rw.vergWBit));
+		rw.vergWBit = 0 + numBits;
+	}
+}
+
+void BitIO::writeRemainingBit()
+{
+	if (rw.vergWBit > 0) {
+		writeData((unsigned char *)& rw.wbyte, sizeof(rw.wbyte));
+	}
+
+}
+
+void BitIO::readData(uint8_t * buf, int numBytes)
+{
+	fread(buf, 1, numBytes, rw.rFile);
+}
+
+uint64_t BitIO::readBit(int numBits)
+{
+	uint64_t result = 0;
+	if (numBits + rw.readRBit <= 64) {//we haven't read everything from the buffer
+		int amtShift = 64 - numBits - rw.readRBit;
+		result |= rw.rbyte << amtShift >> (amtShift + rw.readRBit);
+		rw.readRBit += numBits;
+	}
+	else {
+		if (rw.readRBit < 64) { //read as much as possible
+			result |= rw.rbyte >> rw.readRBit;
+		}
+
+		readData((uint8_t *)& rw.rbyte, sizeof(rw.rbyte));
+
+		numBits -= 64 - rw.readRBit;
+
+		int amtShift = 64 - numBits - 0;
+		result |= rw.rbyte << amtShift >> (amtShift + 0) << (64 - rw.readRBit);//shift to the amount of already read in data
+
+		rw.readRBit = 0 + numBits;
+	}
+
+	return result;
+}
+
+void BitIO::openRead(char * name)
+{
+	rw.rFile = fopen(name, "r");
+}
+
+void BitIO::closeRead()
+{
+	fclose(rw.rFile);
+	rw.rbyte = 0;
+	rw.readRBit = 64;
+}
+
+void BitIO::openWrite(char * name)
+{
+	rw.wFile = fopen(name, "w");
+}
+
+void BitIO::closeWrite()
+{
+	fclose(rw.wFile);
+	rw.wbyte = 0;
+	rw.vergWBit = 0;
+}
+
+
 
 VolInputParser::VolInputParser()
 {
@@ -9,24 +116,17 @@ VolInputParser::VolInputParser()
 							{ { 2,8 },{ 4,10 },{ 6,12 } } });
 
 	std::cout << "Dummy: " << std::endl << DummyTensor << std::endl;
-
-	//std::cout << "Dummy: " << std::endl << DummyTensor(1,2,1) << std::endl;
-
-	//rw.wFile = fopen("erg.txt", "w"); //Open document to write into
 }
 
 VolInputParser::VolInputParser(char * txtname)
 {
-	//rw.wFile = fopen("erg.txt", "w"); //Open document to write into
-
 	readInputVol(txtname);//read in the data
 }
 
 
 VolInputParser::~VolInputParser()
 {
-	//TODO write any remaining bits
-	//fclose(rw.wFile);
+
 }
 
 void VolInputParser::readInputVol(char * txtname)
@@ -76,13 +176,7 @@ void VolInputParser::readInputVol(char * txtname)
 	delete pData;
 }
 
-void VolInputParser::writeData(unsigned char * data, int numBytes)
-{
-	fwrite(data, 1, numBytes, rw.wFile); //writes numBytes byte(char) into file
-}
-
-
-/*//method to safe data bitwise //TODO von vorne nach hinten also 63...0 bit codieren nicht anders herum!
+/*//method to safe data bitwise 
 void VolInputParser::writeBit2(uint64_t bits, int numBits)
 {
 	if (numBits<=rw.numWBit+1) {//we have free bit, just write them in
@@ -132,84 +226,23 @@ uint64_t VolInputParser::readBit2(int to_read) {
     return result;
 }*/
 
-void VolInputParser::writeBit(uint64_t bits, int numBits)
-{
-
-	if (numBits+rw.vergWBit <= 64) {//we have free bit, just write them in TODO -1?
-		rw.wbyte |= bits << (rw.vergWBit);
-		rw.vergWBit += numBits;
-	}
-	else {// write as many bit as we can, store the rest again
-
-		if (rw.vergWBit<64) {//if there is still something free, squeeze it in
-			rw.wbyte |= (bits << (rw.vergWBit));
-		}
-		
-		writeData((unsigned char *)& rw.wbyte, sizeof(rw.wbyte));
-
-		numBits -= 64-rw.vergWBit;
-		rw.wbyte = 0;
-		rw.wbyte |= (bits >> (64 - rw.vergWBit));
-		rw.vergWBit = 0+numBits;
-	}
-}
-
-void VolInputParser::writeRemainingBit()
-{
-	if (rw.vergWBit >0 ) {
-		writeData((unsigned char *)& rw.wbyte, sizeof(rw.wbyte));
-	}
-
-}
-
-void VolInputParser::readData(uint8_t * buf, int numBytes)
-{
-	fread(buf, 1, numBytes, rw.rFile);
-}
-
-uint64_t VolInputParser::readBit(int numBits)
-{
-	uint64_t result = 0;
-	if (numBits+rw.readRBit <=64) {//we haven't read everything from the buffer
-		int amtShift = 64 - numBits - rw.readRBit;
-		result |= rw.rbyte << amtShift >> (amtShift + rw.readRBit);
-		rw.readRBit += numBits;
-	}
-	else {
-		if (rw.readRBit < 64) { //read as much as possible
-			result |= rw.rbyte >> rw.readRBit;
-		}
-
-		readData((uint8_t *)& rw.rbyte, sizeof(rw.rbyte));
-
-		numBits -= 64 - rw.readRBit;
-		
-		int amtShift = 64 - numBits - 0;
-		result |= rw.rbyte << amtShift >> (amtShift + 0) << (64-rw.readRBit);//shift to the amount of already read in data
-
-		rw.readRBit = 0 + numBits;
-	}
-
-	return result;
-}
-
 
 //write the dimensions as short(), scale as double 
 void VolInputParser::writeCharacteristicData(int dim1, int dim2, int dim3, double scale)
 {
-	rw.wFile = fopen("erg.txt", "w"); //Open document to write into
+	char txt[] = "erg.txt";
+	BitIO::openWrite(txt);
 
-	writeBit(uint64_t(dim1), sizeof(unsigned short)*8);
-	writeBit(uint64_t(dim2), sizeof(unsigned short) * 8);
-	writeBit(uint64_t(dim3), sizeof(unsigned short) * 8);
+	BitIO::writeBit(uint64_t(dim1), sizeof(unsigned short)*8);
+	BitIO::writeBit(uint64_t(dim2), sizeof(unsigned short) * 8);
+	BitIO::writeBit(uint64_t(dim3), sizeof(unsigned short) * 8);
 
 	uint64_t tmp;
 	memcpy(&tmp, (void*)&scale, sizeof(scale));
-	writeBit(tmp, 64);
+	BitIO::writeBit(tmp, 64);
 
-	writeRemainingBit();
+	BitIO::writeRemainingBit();
 
-	fclose(rw.wFile);
+	BitIO::closeWrite();
 
 }
-
