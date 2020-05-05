@@ -1,16 +1,6 @@
 #include "TensorOperations.h"
 
 
-
-TensorOperations::TensorOperations()
-{
-}
-
-
-TensorOperations::~TensorOperations()
-{
-}
-
 //function that takes Matrix input and unfoldes it into given mode TODO:Maybe better with chip, see getSlice()
 Eigen::MatrixXd TensorOperations::unfold(Eigen::Tensor<myTensorType, 3> input, int mode)
 {
