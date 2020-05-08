@@ -36,6 +36,9 @@ namespace TTHRESHEncoding {
 
 	void decodeAC(std::vector<int>& rle);
 
+	void encodeACVektor(std::vector<std::vector<int>> rleVek);
+	void decodeACVektor(std::vector<std::vector<int>>& rleVek);
+
 }
 
 

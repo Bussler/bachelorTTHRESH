@@ -228,21 +228,80 @@ uint64_t VolInputParser::readBit2(int to_read) {
 
 
 //write the dimensions as short(), scale as double 
-void VolInputParser::writeCharacteristicData(int dim1, int dim2, int dim3, double scale)
+void VolInputParser::writeCharacteristicData(int dim1, int dim2, int dim3, int U1R, int U1C, int U2R, int U2C, int U3R, int U3C)
 {
 	char txt[] = "erg.txt";
 	BitIO::openWrite(txt);
 
-	BitIO::writeBit(uint64_t(dim1), sizeof(unsigned short)*8);
-	BitIO::writeBit(uint64_t(dim2), sizeof(unsigned short) * 8);
-	BitIO::writeBit(uint64_t(dim3), sizeof(unsigned short) * 8);
+	BitIO::writeBit(uint64_t(dim1), 32);
+	BitIO::writeBit(uint64_t(dim2), 32);
+	BitIO::writeBit(uint64_t(dim3), 32);
 
-	uint64_t tmp;
+	BitIO::writeBit(uint64_t(U1R), 32);
+	BitIO::writeBit(uint64_t(U1C), 32);
+	
+	BitIO::writeBit(uint64_t(U2R), 32);
+	BitIO::writeBit(uint64_t(U2C), 32);
+	
+	BitIO::writeBit(uint64_t(U3R), 32);
+	BitIO::writeBit(uint64_t(U3C), 32);
+
+	/*uint64_t tmp;
 	memcpy(&tmp, (void*)&scale, sizeof(scale));
-	BitIO::writeBit(tmp, 64);
+	BitIO::writeBit(tmp, 64);*/
 
-	BitIO::writeRemainingBit();
+	//BitIO::writeRemainingBit();
+	//BitIO::closeWrite();
 
-	BitIO::closeWrite();
+}
+
+void VolInputParser::readCharacteristicData()
+{
+	char txt[] = "erg.txt";
+	BitIO::openRead(txt);
+
+	tData.dim1 = BitIO::readBit(32);
+	tData.dim2 = BitIO::readBit(32);
+	tData.dim3 = BitIO::readBit(32);
+	tData.U1R = BitIO::readBit(32);
+	tData.U1C = BitIO::readBit(32);
+	tData.U2R = BitIO::readBit(32);
+	tData.U2C = BitIO::readBit(32);
+	tData.U3R = BitIO::readBit(32);
+	tData.U3C = BitIO::readBit(32);
+}
+
+void VolInputParser::readRleData(std::vector<std::vector<int>>& rle, std::vector<std::vector<bool>>& raw, double & scale, std::vector<bool>& signs)
+{
+	//first the scale
+	int64_t scaleFaktor= BitIO::readBit(64);
+	memcpy(&scale, (void*)&scaleFaktor, sizeof(scale));
+
+	//second raw
+	int rawSize = BitIO::readBit(64);
+	for (int i = 0;i < rawSize;i++) {
+		std::vector<bool> cur;
+		int curSize = BitIO::readBit(64);
+		for (int j = 0;j < curSize;j++) {
+			bool c = BitIO::readBit(1);
+			cur.push_back(c);
+		}
+		raw.push_back(cur);
+	}
+
+	//third rle
+	int rleSize = BitIO::readBit(64);
+	for (int i = 0;i < rleSize;i++) {
+		std::vector<int> cur;
+		TTHRESHEncoding::decodeAC(cur);
+		rle.push_back(cur);
+	}
+
+	//fourth signs
+	int signsSize = BitIO::readBit(64);
+	for (int i = 0;i < signsSize;i++) {
+		bool c = BitIO::readBit(1);
+		signs.push_back(c);
+	}
 
 }

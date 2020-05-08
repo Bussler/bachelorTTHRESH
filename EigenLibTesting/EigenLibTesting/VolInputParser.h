@@ -5,6 +5,7 @@
 #include <iostream>
 #include <fstream>
 #include "TensorOperations.h"
+#include "TTHRESHEncoding.h"
 #include <intrin.h>
 
 namespace BitIO {
@@ -29,6 +30,21 @@ class VolInputParser
 {
 public:
 
+	struct ReadTensorData {
+
+		int dim1=0;
+		int dim2=0;
+		int dim3=0;
+		int U1R=0;
+		int U1C=0;
+		int U2R=0;
+		int U2C=0;
+		int U3R=0;
+		int U3C=0;
+
+
+	}tData;
+
 	VolInputParser();
 	VolInputParser(char * txtname);
 	~VolInputParser();
@@ -40,7 +56,9 @@ public:
 	
 	void readInputVol(char * txtname);
 
-	void writeCharacteristicData(int dim1, int dim2, int dim3, double scale);
+	void writeCharacteristicData(int dim1, int dim2, int dim3, int U1R, int U1C, int U2R, int U2C, int U3R, int U3C);
+	void readCharacteristicData();
+	void readRleData(std::vector<std::vector<int>>& rle, std::vector<std::vector<bool>>& raw, double& scale, std::vector<bool>& signs);
 
 	/*void writeBit2(uint64_t bits, int numBits);
 	void writeRemainingBit2();
