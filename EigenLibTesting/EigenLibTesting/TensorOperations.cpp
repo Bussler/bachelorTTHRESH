@@ -161,7 +161,7 @@ void TensorOperations::decompress_HOSVD(Eigen::Tensor<myTensorType, 3> B, Eigen:
 //convert array back to Eigen::Tensor Type for further use (Core Tensor)
 Eigen::Tensor<myTensorType, 3> TensorOperations::createTensorFromArray(myTensorType * data, int d1, int d2, int d3)
 {
-	Eigen::Tensor<myTensorType, 3> t = Eigen::TensorMap<Eigen::Tensor<myTensorType, 3>>(data, d1, d2, d3);;
+	Eigen::Tensor<myTensorType, 3> t = Eigen::TensorMap<Eigen::Tensor<myTensorType, 3>>(data, d1, d2, d3);
 	return t;
 }
 
@@ -174,22 +174,23 @@ Eigen::MatrixXd TensorOperations::createMatrixFromArray(double* data, int d1, in
 
 
 
-//calculates i-th slice of tensor in dimension dim
+//calculates i-th slice of tensor in dimension dim TODO slices correct this way?
 Eigen::MatrixXd TensorOperations::getSlice(Eigen::Tensor<myTensorType, 3> T, int dim, int i)
 {
 	Eigen::MatrixXd slice;
 	Eigen::Tensor<myTensorType, 2> sl;
-	/*
+
+	
 	switch (dim)
 	{
 	case 1:
 		sl = T.chip(i, 2);
-		slice = Eigen::Map<const Eigen::MatrixXd>(sl.data(), T.dimension(0), T.dimension(1));//transform tensor into matrix
+		slice = Eigen::Map<const Eigen::MatrixXd>(sl.data(), T.dimension(0), T.dimension(1));//transform tensor into matrix 
 		break;
 
-	case 2://TODO vlt spiegeln
+	case 2:
 		sl = T.chip(i, 1);
-		slice = Eigen::Map<const Eigen::MatrixXd>(sl.data(), T.dimension(0), T.dimension(2));//transform tensor into matrix
+		slice = Eigen::Map<const Eigen::MatrixXd>(sl.data(), T.dimension(0), T.dimension(2));//transform tensor into matrix 
 		break;
 
 	case 3:
@@ -197,7 +198,7 @@ Eigen::MatrixXd TensorOperations::getSlice(Eigen::Tensor<myTensorType, 3> T, int
 		slice = Eigen::Map<const Eigen::MatrixXd>(sl.data(), T.dimension(1), T.dimension(2));//transform tensor into matrix
 		break;
 	}
-	std::cout << std::endl << "Slice " << i << " mode " << dim << " : " << std::endl << slice << std::endl;
-	*/
+	//std::cout << std::endl << "Slice " << i << " mode " << dim << " : " << std::endl << slice << std::endl;
+	
 	return slice;
 }

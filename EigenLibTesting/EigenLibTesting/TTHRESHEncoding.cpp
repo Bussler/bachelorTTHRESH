@@ -22,7 +22,7 @@ unsigned * TTHRESHEncoding::getBits(uint64_t* n, int k, int numBits)
 }
 
 //encode the coefficients with the help of rle/verbatim until error is below given threshold. Results are safed in rle and raw vectors: Taken from rballester Github
-void TTHRESHEncoding::encodeRLE(double * c, int numC, double errorTarget, std::vector<std::vector<int>>& rle, std::vector<std::vector<bool>>& raw, double& scale, std::vector<bool>& signs)
+std::vector<uint64_t> TTHRESHEncoding::encodeRLE(double * c, int numC, double errorTarget, std::vector<std::vector<int>>& rle, std::vector<std::vector<bool>>& raw, double& scale, std::vector<bool>& signs)
 {
 	double max = 0;
 	for (int i = 0;i < numC;i++) {
@@ -122,6 +122,9 @@ void TTHRESHEncoding::encodeRLE(double * c, int numC, double errorTarget, std::v
 
 	//TODO: Sizes der rle, raw vectoren speichern um wieder korrekt daten auslesen zu können
 
+	//TODO: Alpha Scaling berechnen
+
+	return mask;
 }
 
 double * TTHRESHEncoding::decodeRLE(std::vector<std::vector<int>> rle, std::vector<std::vector<bool>> raw, int numC, double scale, std::vector<bool> signs)
@@ -190,8 +193,10 @@ double * TTHRESHEncoding::decodeRLE(std::vector<std::vector<int>> rle, std::vect
 }
 
 //convert sse according to specified errorType and starts the rle/verbatim encoding process
-void TTHRESHEncoding::compress(double * coefficients, int numC, double errorTarget, ErrorType etype, std::vector<std::vector<int>>& rle, std::vector<std::vector<bool>>& raw, double& scale, std::vector<bool>& signs)
+void TTHRESHEncoding::compress(Eigen::Tensor<myTensorType, 3> b, std::vector<Eigen::MatrixXd> us, double errorTarget, ErrorType etype, std::vector<std::vector<int>>& rle, std::vector<std::vector<bool>>& raw, double& scale, std::vector<bool>& signs)
 {
+	double* coefficients = b.data();
+	int numC = b.dimension(0)*b.dimension(1)*b.dimension(2);
 	//convert sse according to target error
 
 	double dataNorm = 0;
@@ -215,7 +220,50 @@ void TTHRESHEncoding::compress(double * coefficients, int numC, double errorTarg
 
 	double convertedError = sqrt(sse) / dataNorm;
 
-	encodeRLE(coefficients, numC, convertedError,rle, raw,scale, signs);
+	std::vector<uint64_t> CoreMask = encodeRLE(coefficients, numC, convertedError,rle, raw,scale, signs); // encode the core
+
+	//TODO write the data to file in this Method
+
+	//encode the factor matrices: calculate core-slice norms TODO rballester special case 0
+	Eigen::Tensor<myTensorType, 3> maskTensor = TensorOperations::createTensorFromArray((myTensorType*) CoreMask.data(), b.dimension(0), b.dimension(1), b.dimension(2));
+
+	std::vector<std::vector<double>> usNorms;
+
+	/*for (int i = 0; i < us.size();i++) {//multiply each U col with core-slice norm
+		std::vector<double> n;
+		for (int j = 0;j < us[i].cols();j++) {
+			
+			Eigen::MatrixXd slice = TensorOperations::getSlice(maskTensor, i+1, j);
+			us[i].col(j) *= slice.norm(); //TODO slicenorms abspeichern
+			n.push_back(slice.norm());
+			//std::cout << j << ": " << slice.norm()<<std::endl;
+		}
+		usNorms.push_back(n);
+	}
+	std::cout << "U2 nach Scale: " << std::endl << us[1] << std::endl;*/
+
+
+	std::vector<std::vector<std::vector<int>>> usRle;
+	std::vector<std::vector<std::vector<bool>>> usRaw;
+	std::vector<double> usScales;
+	std::vector<std::vector<bool>> usSigns;
+	
+	for (int i = 0; i < us.size(); i++) {//encode the factor matizes
+		usRle.push_back(std::vector < std::vector<int>>());
+		usRaw.push_back(std::vector < std::vector<bool>>());
+		usScales.push_back(0);
+		usSigns.push_back(std::vector<bool>());
+
+		encodeRLE(us[i].data(), us[i].cols()*us[i].rows(), convertedError, usRle[i], usRaw[i], usScales[i], usSigns[i] );
+	}
+
+	//Test for decoding
+	/*double * decU = decodeRLE(usRle[1], usRaw[1], us[1].cols()*us[1].rows(), usScales[1], usSigns[1]);
+	Eigen::MatrixXd decMU = TensorOperations::createMatrixFromArray(decU, us[1].rows(), us[1].cols());
+	for (int j = 0;j < us[1].cols();j++) {
+		decMU.col(j) /= usNorms[1][j];
+	}
+	std::cout << "Decoded Factor 2: " << std::endl << decMU << std::endl;*/
 
 }
 
