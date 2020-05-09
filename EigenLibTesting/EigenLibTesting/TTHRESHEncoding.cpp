@@ -9,6 +9,8 @@ uint64_t TTHRESHEncoding::oneFourth = (TTHRESHEncoding::max + 1) / 4;
 uint64_t TTHRESHEncoding::half = TTHRESHEncoding::oneFourth*2;
 uint64_t TTHRESHEncoding::threeFourth = TTHRESHEncoding::oneFourth * 3;
 
+double price = -1, totalBitsCore= -1, errorCore=-1;//values for alpha calc
+
 //stores the k-th bit of all n in bit-array
 unsigned * TTHRESHEncoding::getBits(uint64_t* n, int k, int numBits)
 {
@@ -21,8 +23,8 @@ unsigned * TTHRESHEncoding::getBits(uint64_t* n, int k, int numBits)
 	return bits;
 }
 
-//encode the coefficients with the help of rle/verbatim until error is below given threshold. Results are safed in rle and raw vectors: Taken from rballester Github
-std::vector<uint64_t> TTHRESHEncoding::encodeRLE(double * c, int numC, double errorTarget, std::vector<std::vector<int>>& rle, std::vector<std::vector<bool>>& raw, double& scale, std::vector<bool>& signs)
+//encode the coefficients with the help of rle/verbatim until error is below given threshold. Results are safed in rle and raw vectors: Adapted from rballester Github (Alpha, SSE calc)
+std::vector<uint64_t> TTHRESHEncoding::encodeRLE(double * c, int numC, double errorTarget, bool isCore, std::vector<std::vector<int>>& rle, std::vector<std::vector<bool>>& raw, double& scale, std::vector<bool>& signs)
 {
 	double max = 0;
 	for (int i = 0;i < numC;i++) {
@@ -30,7 +32,7 @@ std::vector<uint64_t> TTHRESHEncoding::encodeRLE(double * c, int numC, double er
 			max = abs(c[i]);
 		}
 	}
-	
+
 	double scaleK = ldexp(1, 63 - ilogb(max));//calculate scale factor according to tthresh paper formula
 	long double frobNormSq = 0;//Squared Frobeniusnorm of tensor
 	
@@ -47,6 +49,12 @@ std::vector<uint64_t> TTHRESHEncoding::encodeRLE(double * c, int numC, double er
 	long double sse = frobNormSq;//exit condition: sse < given threshold
 	long double thresh = errorTarget*errorTarget*frobNormSq;
 	bool done = false;
+
+	//values for alpha calc
+	long double lastError = 1;
+	int totalBits=0;
+	int lastTotalBits = 0;
+	double errorDelta = 0, sizeDelta = 0, error = 0;
 
 	std::vector<uint64_t> mask(numC, 0);//creating bitmask to determine already relevant coefficients
 	
@@ -77,6 +85,7 @@ std::vector<uint64_t> TTHRESHEncoding::encodeRLE(double * c, int numC, double er
 
 			}
 			else {//is active, verbatim enociding
+				totalBits++;
 				cRaw.push_back(curBit>0);
 			}
 
@@ -105,6 +114,26 @@ std::vector<uint64_t> TTHRESHEncoding::encodeRLE(double * c, int numC, double er
 
 		long double k = (unsigned long long(1) << p);
 		sse += (-2)*k*planeSSE + k * k*planeOnes;//updating sse if exit condition was not reached
+
+		
+		//TODO encode rle/raw here, don't safe them first into vectors
+		totalBits += 64;//saving rawsize
+		totalBits += 254;//saving rle, annahme: pro rle werden 254 bit gespeichert
+		error = sqrt(double(sse/frobNormSq));
+		if (lastTotalBits>0) {
+			if (isCore) {
+				sizeDelta = (totalBits-lastTotalBits)/double(lastTotalBits);
+				errorDelta = (lastError - error) / error;
+			}
+			else {//exit loop for factor matrizes
+				if ((totalBits/totalBitsCore)/(error/errorCore) >= price) {
+					std::cout << "yeetus deletus" << std::endl;
+					done = true;
+				}
+			}
+		}
+		lastTotalBits = totalBits;
+		lastError = error;
 
 		if (done) {
 			break;
@@ -139,12 +168,17 @@ std::vector<uint64_t> TTHRESHEncoding::encodeRLE(double * c, int numC, double er
 	BitIO::writeBit(signs.size(),64);//saving size
 	for (int i = 0;i < signs.size();i++) {
 		BitIO::writeBit(signs[i], 1);//saving data
+		totalBits++;//TODO also safe size, so +64 at beginning?
 	}
 
-
-	//TODO: Sizes der rle, raw vectoren speichern um wieder korrekt daten auslesen zu können
+	//TODO: Encoded Bit innerhalb berechnen: wie viele bit werden innerhalb der schleife für rle etc benötigt? Und wie kann rle, raw innerhalb der schleife geschrieben werden und gleichzeitig size der vektoren gespeichert werden?
 
 	//TODO: Alpha Scaling berechnen
+	if (isCore) {//safe alpha values for core
+		price = sizeDelta / errorDelta;
+		errorCore = error;
+		totalBitsCore = totalBits;
+	}
 
 	return mask;
 }
@@ -242,10 +276,10 @@ void TTHRESHEncoding::compress(Eigen::Tensor<myTensorType, 3> b, std::vector<Eig
 
 	double convertedError = sqrt(sse) / dataNorm;
 
-	std::vector<uint64_t> CoreMask = encodeRLE(coefficients, numC, convertedError,rle, raw,scale, signs); // encode the core
+	std::vector<uint64_t> CoreMask = encodeRLE(coefficients, numC, convertedError, true, rle, raw,scale, signs); // encode the core
 
 	//encode the factor matrices: calculate core-slice norms TODO rballester special case 0
-	/*Eigen::Tensor<myTensorType, 3> maskTensor = TensorOperations::createTensorFromArray((myTensorType*) CoreMask.data(), b.dimension(0), b.dimension(1), b.dimension(2));
+	Eigen::Tensor<myTensorType, 3> maskTensor = b;// TensorOperations::createTensorFromArray((myTensorType*)CoreMask.data(), b.dimension(0), b.dimension(1), b.dimension(2));
 
 	std::vector<std::vector<double>> usNorms;
 
@@ -256,11 +290,11 @@ void TTHRESHEncoding::compress(Eigen::Tensor<myTensorType, 3> b, std::vector<Eig
 			Eigen::MatrixXd slice = TensorOperations::getSlice(maskTensor, i+1, j);
 			us[i].col(j) *= slice.norm(); //TODO slicenorms abspeichern
 			n.push_back(slice.norm());
-			//std::cout << j << ": " << slice.norm()<<std::endl;
+			//std::cout << j << ": " << slice.norm()<<std::endl<<slice<<std::endl;
 		}
 		usNorms.push_back(n);
 	}
-	std::cout << "U2 nach Scale: " << std::endl << us[1] << std::endl;
+	//std::cout << "U1 nach Scale: " << std::endl << us[0] << std::endl;
 
 
 	std::vector<std::vector<std::vector<int>>> usRle;
@@ -274,16 +308,17 @@ void TTHRESHEncoding::compress(Eigen::Tensor<myTensorType, 3> b, std::vector<Eig
 		usScales.push_back(0);
 		usSigns.push_back(std::vector<bool>());
 
-		encodeRLE(us[i].data(), us[i].cols()*us[i].rows(), convertedError, usRle[i], usRaw[i], usScales[i], usSigns[i] );
+		encodeRLE(us[i].data(), us[i].cols()*us[i].rows(), convertedError,false, usRle[i], usRaw[i], usScales[i], usSigns[i] );
 	}
 
 	//Test for decoding
-	double * decU = decodeRLE(usRle[1], usRaw[1], us[1].cols()*us[1].rows(), usScales[1], usSigns[1]);
-	Eigen::MatrixXd decMU = TensorOperations::createMatrixFromArray(decU, us[1].rows(), us[1].cols());
-	for (int j = 0;j < us[1].cols();j++) {
-		decMU.col(j) /= usNorms[1][j];
+	int kek = 0;
+	double * decU = decodeRLE(usRle[kek], usRaw[kek], us[kek].cols()*us[kek].rows(), usScales[kek], usSigns[kek]);
+	Eigen::MatrixXd decMU = TensorOperations::createMatrixFromArray(decU, us[kek].rows(), us[kek].cols());
+	for (int j = 0;j < us[kek].cols();j++) {
+		decMU.col(j) /= usNorms[kek][j];
 	}
-	std::cout << "Decoded Factor 2: " << std::endl << decMU << std::endl;*/
+	std::cout << "Decoded Factor"<<kek<< ": " << std::endl << decMU << std::endl;
 
 }
 

@@ -25,7 +25,7 @@ namespace TTHRESHEncoding {
 
 	unsigned * getBits(uint64_t* n, int k, int numBits);
 	
-	std::vector<uint64_t> encodeRLE(double * coefficients, int numC, double errorTarget, std::vector<std::vector<int>> & rle, std::vector<std::vector<bool>>& raw, double& scale, std::vector<bool>& signs);
+	std::vector<uint64_t> encodeRLE(double * coefficients, int numC, double errorTarget, bool isCore, std::vector<std::vector<int>> & rle, std::vector<std::vector<bool>>& raw, double& scale, std::vector<bool>& signs);
 	double* decodeRLE(std::vector<std::vector<int>> rle, std::vector<std::vector<bool>> raw, int numC, double scale, std::vector<bool> signs);
 	
 	void compress(Eigen::Tensor<myTensorType, 3> b, std::vector<Eigen::MatrixXd> us, double errorTarget, ErrorType etype, std::vector<std::vector<int>> & rle, std::vector<std::vector<bool>>& raw, double& scale, std::vector<bool>& signs);
