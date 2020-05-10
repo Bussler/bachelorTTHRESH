@@ -10,6 +10,7 @@ uint64_t TTHRESHEncoding::half = TTHRESHEncoding::oneFourth*2;
 uint64_t TTHRESHEncoding::threeFourth = TTHRESHEncoding::oneFourth * 3;
 
 double price = -1, totalBitsCore= -1, errorCore=-1;//values for alpha calc
+int encodingBitsAc = 0;
 
 //stores the k-th bit of all n in bit-array
 unsigned * TTHRESHEncoding::getBits(uint64_t* n, int k, int numBits)
@@ -118,7 +119,7 @@ std::vector<uint64_t> TTHRESHEncoding::encodeRLE(double * c, int numC, double er
 		
 		//TODO encode rle/raw here, don't safe them first into vectors
 		totalBits += 64;//saving rawsize
-		totalBits += 254;//saving rle, annahme: pro rle werden 254 bit gespeichert
+		totalBits += 180;//saving rle, annahme: pro rle werden 254 bit gespeichert
 		error = sqrt(double(sse/frobNormSq));
 		if (lastTotalBits>0) {
 			if (isCore) {
@@ -126,7 +127,7 @@ std::vector<uint64_t> TTHRESHEncoding::encodeRLE(double * c, int numC, double er
 				errorDelta = (lastError - error) / error;
 			}
 			else {//exit loop for factor matrizes
-				if ((totalBits/totalBitsCore)/(error/errorCore) >= price) {
+				if ((totalBits/totalBitsCore)/(error/errorCore) >= price) { //reduction in sse by last co bits / number if bits to compress <= core-alpha
 					std::cout << "yeetus deletus" << std::endl;
 					done = true;
 				}
@@ -173,7 +174,6 @@ std::vector<uint64_t> TTHRESHEncoding::encodeRLE(double * c, int numC, double er
 
 	//TODO: Encoded Bit innerhalb berechnen: wie viele bit werden innerhalb der schleife für rle etc benötigt? Und wie kann rle, raw innerhalb der schleife geschrieben werden und gleichzeitig size der vektoren gespeichert werden?
 
-	//TODO: Alpha Scaling berechnen
 	if (isCore) {//safe alpha values for core
 		price = sizeDelta / errorDelta;
 		errorCore = error;
@@ -288,13 +288,20 @@ void TTHRESHEncoding::compress(Eigen::Tensor<myTensorType, 3> b, std::vector<Eig
 		for (int j = 0;j < us[i].cols();j++) {
 			
 			Eigen::MatrixXd slice = TensorOperations::getSlice(maskTensor, i+1, j);
-			us[i].col(j) *= slice.norm(); //TODO slicenorms abspeichern
+			us[i].col(j) *= slice.norm();
 			n.push_back(slice.norm());
 			//std::cout << j << ": " << slice.norm()<<std::endl<<slice<<std::endl;
 		}
 		usNorms.push_back(n);
 	}
 	//std::cout << "U1 nach Scale: " << std::endl << us[0] << std::endl;
+	std::cout << "Num Norms: " << usNorms.size()<<std::endl;
+	BitIO::writeBit(usNorms.size(), 64);
+	/*for (int i = 0;i < usNorms.size();i++) {//TODO
+		uint64_t tmp;
+		memcpy(&tmp, (void*)&usNorms[i], sizeof(usNorms[i]));
+		BitIO::writeBit(tmp, 64);//slicenorms abspeichern
+	}*/
 
 
 	std::vector<std::vector<std::vector<int>>> usRle;
@@ -325,6 +332,8 @@ void TTHRESHEncoding::compress(Eigen::Tensor<myTensorType, 3> b, std::vector<Eig
 //encode the rle with AC Bit-Plane wise: Taken from rballester Github
 void TTHRESHEncoding::encodeAC(std::vector<int> rle)
 {
+	encodingBitsAc = 0;
+
 	//creating frequency/Interval Table : The model
 	std::map<uint64_t, std::pair<uint64_t, uint64_t>> freq;// key -> (count of key, lower bound Interval)
 	for (int i = 0; i < rle.size(); i++) {
@@ -340,6 +349,7 @@ void TTHRESHEncoding::encodeAC(std::vector<int> rle)
 	//saving the model for later decode
 	uint64_t freqSize = freq.size();
 	BitIO::writeBit(freqSize, 64);
+	encodingBitsAc += 64;
 
 	for (auto it = freq.begin(); it != freq.end(); it++) {
 		uint64_t key = it->first;
@@ -370,12 +380,15 @@ void TTHRESHEncoding::encodeAC(std::vector<int> rle)
 		BitIO::writeBit(probLen, 6);
 		BitIO::writeBit(prob, probLen);//save prob
 
+		encodingBitsAc += 6 + 6 + keyLen + probLen;
+
 		//BitIO::writeBit(key, 32);//save key and frequenzy with 32 bit
 		//BitIO::writeBit(prob, 32);
 	}
 
 	uint64_t rleSize = rle.size();
 	BitIO::writeBit(rleSize, 64);//save the number of symbols to encode
+	encodingBitsAc += 64;
 
 	//after model is built, encode input
 	int pendingBits = 0; //Counter to store pending bits when low and high are converging
@@ -430,13 +443,17 @@ void TTHRESHEncoding::encodeAC(std::vector<int> rle)
 
 	//Write trailing 0s
 	BitIO::writeBit(0, ACValueBits- 2);
+	encodingBitsAc += ACValueBits - 2;//TODO encoding bits in rle einbinden!
+	//std::cout << "AC Bit: " << encodingBitsAc << std::endl;
 }
 
 void TTHRESHEncoding::putBitPlusPending(bool bit, int & pending)
 {
 	BitIO::writeBit(bit,1);
+	encodingBitsAc++;
 	for (int i = 0;i < pending;i++) {
 		BitIO::writeBit(!bit,1);
+		encodingBitsAc++;
 	}
 	pending = 0;
 }
@@ -532,15 +549,17 @@ void TTHRESHEncoding::decodeAC(std::vector<int>& rle)
 }
 
 
-/*
+
 //try to encode and write the whole vektor with a single freq model
 void TTHRESHEncoding::encodeACVektor(std::vector<std::vector<int>> rleVek)
 {
+	int wholeSize = 0;
 	//creating frequency/Interval Table : The model
 	std::map<uint64_t, std::pair<uint64_t, uint64_t>> freq;// key -> (count of key, lower bound Interval)
 	for (int i = 0; i < rleVek.size(); i++) {
 		for (int j = 0; j < rleVek[i].size(); j++) {
 			freq[rleVek[i][j]].first += 1; //count the occurences of the key
+			wholeSize++;
 		}
 
 	}
@@ -565,16 +584,18 @@ void TTHRESHEncoding::encodeACVektor(std::vector<std::vector<int>> rleVek)
 
 	uint64_t rleVekSize = rleVek.size();
 	BitIO::writeBit(rleVekSize, 64); //save the number of elements to write
-	
-	for (int itOverRle = 0; itOverRle < rleVek.size();itOverRle++) { // iterate over bitplanes and encode them
 
-		uint64_t rleSize = rleVek[itOverRle].size();
+	for (int i = 0;i < rleVekSize;i++) {
+		uint64_t rleSize = rleVek[i].size();
 		BitIO::writeBit(rleSize, 64);//save the number of symbols to encode
+	}
+	
+	//after model is built, encode input
+	int pendingBits = 0; //Counter to store pending bits when low and high are converging
+	uint64_t low = 0; //low limit for interval, can only increase
+	uint64_t high = max; //high limit for interval, can only decrease
 
-		//after model is built, encode input
-		int pendingBits = 0; //Counter to store pending bits when low and high are converging
-		uint64_t low = 0; //low limit for interval, can only increase
-		uint64_t high = max; //high limit for interval, can only decrease
+	for (int itOverRle = 0; itOverRle < rleVek.size();itOverRle++) { // iterate over bitplanes and encode them
 
 		for (int i = 0;i < rleVek[itOverRle].size();i++) {
 			uint64_t cur = rleVek[itOverRle][i];
@@ -583,8 +604,8 @@ void TTHRESHEncoding::encodeACVektor(std::vector<std::vector<int>> rleVek)
 			uint64_t probLow = freq[cur].second;//gets bottom interval value
 
 			uint64_t newRange = high - low + 1; //current subset
-			high = low + (newRange*probHigh / rleVek[itOverRle].size()) - 1; //progressive subdividing of range
-			low = low + (newRange*probLow / rleVek[itOverRle].size());
+			high = low + (newRange*probHigh / wholeSize) - 1; //progressive subdividing of range TODO groesse des ganzen arrays benutzen
+			low = low + (newRange*probLow / wholeSize);
 
 			while (true) {
 
@@ -614,18 +635,19 @@ void TTHRESHEncoding::encodeACVektor(std::vector<std::vector<int>> rleVek)
 
 		}
 
-		pendingBits++;
-		if (low < oneFourth) {
-			putBitPlusPending(0, pendingBits);
-		}
-		else {
-			putBitPlusPending(1, pendingBits);
-		}
-
-		//Write trailing 0s
-		BitIO::writeBit(0, ACValueBits - 2);
 
 	}
+
+	pendingBits++;
+	if (low < oneFourth) {
+		putBitPlusPending(0, pendingBits);
+	}
+	else {
+		putBitPlusPending(1, pendingBits);
+	}
+
+	//Write trailing 0s
+	BitIO::writeBit(0, ACValueBits - 2);
 
 }
 
@@ -646,24 +668,25 @@ void TTHRESHEncoding::decodeACVektor(std::vector<std::vector<int>>& rleVek)
 	}
 
 	uint64_t rleVekSize = BitIO::readBit(64);
+	std::vector<int> rleSizes;
+	int wholeSize = 0;
+	for (int i = 0;i < rleVekSize;i++) {
+		int curVekSize = BitIO::readBit(64);
+		rleSizes.push_back(curVekSize);
+		wholeSize += curVekSize;
+	}
 
-	freq[rleVekSize] = 0;//we need another upper bound
+	freq[wholeSize] = 0;//we need another upper bound
 
-	for (int itOverRle = 0; itOverRle < rleVekSize; itOverRle++) {
 		std::vector<int> curPlane;
 
-		uint64_t rleSize = BitIO::readBit(64);
-		if (rleSize == 0) {//TODO special case if we encoded a rle with size 0
-			for (int i = 0;i < ACValueBits;i++) {
-				int h = BitIO::readBit(1);
-			}
-			continue;
-		}
+		int rleVekCounter = 0;
+		uint64_t rleSize = rleSizes[rleVekCounter++];
 
 		//decoding
 		uint64_t high = max;
 		uint64_t low = 0;
-		uint64_t val = 0;//= inParser.readBit(ACValueBits); //encoded value to decode
+		uint64_t val = 0; //encoded value to decode
 		for (int i = 0;i < ACValueBits;i++) { //TODO problem with little endian read in, instead shift all bit one by one
 			val <<= 1;
 			val += BitIO::readBit(1) ? 1 : 0;
@@ -671,54 +694,62 @@ void TTHRESHEncoding::decodeACVektor(std::vector<std::vector<int>>& rleVek)
 
 		while (true) {
 
-			uint64_t range = high - low + 1;
-			uint64_t scaledVal = ((val - low + 1)*rleSize - 1) / range;
+			if (rleSize != 0) {
 
-			auto it = freq.upper_bound(scaledVal);
-			uint64_t pHigh = it->first;//high bound of interval
-			it--;
-			uint64_t pLow = it->first;//low bound of interval
+				uint64_t range = high - low + 1;
+				uint64_t scaledVal = ((val - low + 1)*wholeSize - 1) / range;
 
-			curPlane.push_back(int(it->second));//save the key, the decoded signal
+				auto it = freq.upper_bound(scaledVal);
+				uint64_t pHigh = it->first;//high bound of interval
+				it--;
+				uint64_t pLow = it->first;//low bound of interval
 
-			high = low + (range*pHigh) / rleSize - 1;
-			low = low + (range*pLow) / rleSize;
+				curPlane.push_back(int(it->second));//save the key, the decoded signal
 
-			while (true) {
+				high = low + (range*pHigh) / wholeSize - 1;
+				low = low + (range*pLow) / wholeSize;
 
-				if (high < half) {//bit is 0
+				while (true) {
+
+					if (high < half) {//bit is 0
+
+					}
+					else if (low >= half) {
+						val -= half;
+						low -= half;
+						high -= half;
+					}
+					else if (low >= oneFourth && high < threeFourth) {
+						val -= oneFourth;
+						low -= oneFourth;
+						high -= oneFourth;
+					}
+					else {
+						break;
+					}
+
+					low <<= 1;
+					high <<= 1;
+					high++;//high: never ending stream of ones
+					val <<= 1;
+					val += BitIO::readBit(1) ? 1 : 0;
 
 				}
-				else if (low >= half) {
-					val -= half;
-					low -= half;
-					high -= half;
-				}
-				else if (low >= oneFourth && high < threeFourth) {
-					val -= oneFourth;
-					low -= oneFourth;
-					high -= oneFourth;
-				}
-				else {
-					break;
-				}
-
-				low <<= 1;
-				high <<= 1;
-				high++;//high: never ending stream of ones
-				val <<= 1;
-				val += BitIO::readBit(1) ? 1 : 0;
 
 			}
 
 			if (curPlane.size() == rleSize) {//we have all our decoded symbols
-				break;
+				rleVek.push_back(curPlane);
+
+				if (rleVek.size() == rleVekSize) {
+					break;
+				}
+
+				rleSize = rleSizes[rleVekCounter++];
+				curPlane.clear();
 			}
 
 		}
 
-		rleVek.push_back(curPlane);
-	}
-
 }
-*/
+
