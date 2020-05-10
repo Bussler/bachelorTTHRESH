@@ -128,7 +128,7 @@ std::vector<uint64_t> TTHRESHEncoding::encodeRLE(double * c, int numC, double er
 			}
 			else {//exit loop for factor matrizes
 				if ((totalBits/totalBitsCore)/(error/errorCore) >= price) { //reduction in sse by last co bits / number if bits to compress <= core-alpha
-					std::cout << "yeetus deletus" << std::endl;
+					std::cout << "End Factor-Matrix encoding" << std::endl;
 					done = true;
 				}
 			}
@@ -295,13 +295,16 @@ void TTHRESHEncoding::compress(Eigen::Tensor<myTensorType, 3> b, std::vector<Eig
 		usNorms.push_back(n);
 	}
 	//std::cout << "U1 nach Scale: " << std::endl << us[0] << std::endl;
-	std::cout << "Num Norms: " << usNorms.size()<<std::endl;
+	//std::cout << "Num Norms: " << usNorms.size()<<std::endl;
 	BitIO::writeBit(usNorms.size(), 64);
-	/*for (int i = 0;i < usNorms.size();i++) {//TODO
-		uint64_t tmp;
-		memcpy(&tmp, (void*)&usNorms[i], sizeof(usNorms[i]));
-		BitIO::writeBit(tmp, 64);//slicenorms abspeichern
-	}*/
+	for(int i = 0;i < usNorms.size();i++) {//TODO vector of vectors
+		BitIO::writeBit(usNorms[i].size(),64);
+		for (int j = 0;j < usNorms[i].size();j++) {
+			uint64_t tmp;
+			memcpy(&tmp, (void*)&usNorms[i][j], sizeof(usNorms[i][j]));
+			BitIO::writeBit(tmp, 64);//slicenorms abspeichern
+		}
+	}
 
 
 	std::vector<std::vector<std::vector<int>>> usRle;
@@ -318,14 +321,14 @@ void TTHRESHEncoding::compress(Eigen::Tensor<myTensorType, 3> b, std::vector<Eig
 		encodeRLE(us[i].data(), us[i].cols()*us[i].rows(), convertedError,false, usRle[i], usRaw[i], usScales[i], usSigns[i] );
 	}
 
-	//Test for decoding
+	/*//Test for decoding
 	int kek = 0;
 	double * decU = decodeRLE(usRle[kek], usRaw[kek], us[kek].cols()*us[kek].rows(), usScales[kek], usSigns[kek]);
 	Eigen::MatrixXd decMU = TensorOperations::createMatrixFromArray(decU, us[kek].rows(), us[kek].cols());
 	for (int j = 0;j < us[kek].cols();j++) {
 		decMU.col(j) /= usNorms[kek][j];
 	}
-	std::cout << "Decoded Factor"<<kek<< ": " << std::endl << decMU << std::endl;
+	std::cout << "Decoded Factor"<<kek<< ": " << std::endl << decMU << std::endl;*/
 
 }
 

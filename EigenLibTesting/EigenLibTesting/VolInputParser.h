@@ -42,6 +42,7 @@ public:
 		int U3R=0;
 		int U3C=0;
 
+		std::vector<std::vector<double>> coreSliceNorms;
 
 	}tData;
 
@@ -59,6 +60,7 @@ public:
 	void writeCharacteristicData(int dim1, int dim2, int dim3, int U1R, int U1C, int U2R, int U2C, int U3R, int U3C);
 	void readCharacteristicData();
 	void readRleData(std::vector<std::vector<int>>& rle, std::vector<std::vector<bool>>& raw, double& scale, std::vector<bool>& signs);
+	void readNormData();
 
 	/*void writeBit2(uint64_t bits, int numBits);
 	void writeRemainingBit2();

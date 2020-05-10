@@ -305,3 +305,21 @@ void VolInputParser::readRleData(std::vector<std::vector<int>>& rle, std::vector
 	}
 
 }
+
+//read and safe norm-data for later decoding
+void VolInputParser::readNormData()
+{
+	int numNorms = BitIO::readBit(64);
+	for (int i = 0; i < numNorms; i++) {
+		int numElem = BitIO::readBit(64);
+		std::vector<double> cur;
+		for (int j = 0;j < numElem;j++) {
+			double val;
+			int64_t readVal = BitIO::readBit(64);
+			memcpy(&val, (void*)&readVal, sizeof(readVal));
+			cur.push_back(val);
+		}
+		tData.coreSliceNorms.push_back(cur);
+	}
+}
+
