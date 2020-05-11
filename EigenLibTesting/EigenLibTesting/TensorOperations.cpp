@@ -82,7 +82,7 @@ Eigen::Tensor<myTensorType, 3> TensorOperations::fold(Eigen::MatrixXd input, int
 	return tensor;
 }
 
-//function that computes Factormatrix U for unfolded Core B
+//function that computes Factormatrix U for unfolded Core B 
 Eigen::MatrixXd TensorOperations::computeEigenvectors(Eigen::MatrixXd B)
 {
 	Eigen::SelfAdjointEigenSolver<Eigen::MatrixXd> solver(B*B.transpose()); //B*B^T is symmetric, we are able to use faster Eigen comp
@@ -105,6 +105,8 @@ Eigen::MatrixXd TensorOperations::computeEigenvectors(Eigen::MatrixXd B)
 	for (int i = 0;i < rows;i++) {
 		U.col(i) = U_unsorted.col(sortedEigenval[i].second);//rearrange cols accoring to sorting
 	}
+
+	//TODO hier gleich schon mit Eigenval - matrix multiplizieren! und speichern!
 
 	return U;
 }

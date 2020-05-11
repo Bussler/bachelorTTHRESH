@@ -283,7 +283,7 @@ void TTHRESHEncoding::compress(Eigen::Tensor<myTensorType, 3> b, std::vector<Eig
 
 	std::vector<std::vector<double>> usNorms;
 
-	for (int i = 0; i < us.size();i++) {//multiply each U col with core-slice norm
+	for (int i = 0; i < us.size();i++) {//multiply each U col with core-slice norm TODO umschreiben
 		std::vector<double> n;
 		for (int j = 0;j < us[i].cols();j++) {
 			
@@ -295,7 +295,7 @@ void TTHRESHEncoding::compress(Eigen::Tensor<myTensorType, 3> b, std::vector<Eig
 		usNorms.push_back(n);
 	}
 	//std::cout << "U1 nach Scale: " << std::endl << us[0] << std::endl;
-	//std::cout << "Num Norms: " << usNorms.size()<<std::endl;
+	
 	BitIO::writeBit(usNorms.size(), 64);
 	for(int i = 0;i < usNorms.size();i++) {//TODO vector of vectors
 		BitIO::writeBit(usNorms[i].size(),64);
@@ -447,7 +447,7 @@ void TTHRESHEncoding::encodeAC(std::vector<int> rle)
 	//Write trailing 0s
 	BitIO::writeBit(0, ACValueBits- 2);
 	encodingBitsAc += ACValueBits - 2;//TODO encoding bits in rle einbinden!
-	//std::cout << "AC Bit: " << encodingBitsAc << std::endl;
+	std::cout << "AC Bit: " << encodingBitsAc << std::endl;
 }
 
 void TTHRESHEncoding::putBitPlusPending(bool bit, int & pending)
