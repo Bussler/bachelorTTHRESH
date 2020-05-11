@@ -1,5 +1,6 @@
 #include "TensorOperations.h"
 
+std::vector< std::vector < double>> TensorOperations::coreSliceNorms;
 
 //function that takes Matrix input and unfoldes it into given mode TODO:Maybe better with chip, see getSlice()
 Eigen::MatrixXd TensorOperations::unfold(Eigen::Tensor<myTensorType, 3> input, int mode)
@@ -102,11 +103,12 @@ Eigen::MatrixXd TensorOperations::computeEigenvectors(Eigen::MatrixXd B)
 
 	std::sort(sortedEigenval.begin(), sortedEigenval.end());//sort eigenvalue pairs desc
 
+	//std::vector<double> curCoreNorms;
 	for (int i = 0;i < rows;i++) {
 		U.col(i) = U_unsorted.col(sortedEigenval[i].second);//rearrange cols accoring to sorting
+		//curCoreNorms.push_back(sortedEigenval[i].first); //TODO maybe safe core here already!
 	}
-
-	//TODO hier gleich schon mit Eigenval - matrix multiplizieren! und speichern!
+	//coreSliceNorms.push_back(curCoreNorms);
 
 	return U;
 }

@@ -280,7 +280,6 @@ void TTHRESHEncoding::compress(Eigen::Tensor<myTensorType, 3> b, std::vector<Eig
 
 	//encode the factor matrices: calculate core-slice norms TODO rballester special case 0
 	Eigen::Tensor<myTensorType, 3> maskTensor = b;// TensorOperations::createTensorFromArray((myTensorType*)CoreMask.data(), b.dimension(0), b.dimension(1), b.dimension(2));
-
 	std::vector<std::vector<double>> usNorms;
 
 	for (int i = 0; i < us.size();i++) {//multiply each U col with core-slice norm TODO umschreiben
@@ -288,15 +287,12 @@ void TTHRESHEncoding::compress(Eigen::Tensor<myTensorType, 3> b, std::vector<Eig
 		for (int j = 0;j < us[i].cols();j++) {
 			
 			Eigen::MatrixXd slice = TensorOperations::getSlice(maskTensor, i+1, j);
-			us[i].col(j) *= slice.norm();
-			n.push_back(slice.norm());
-			//std::cout << j << ": " << slice.norm()<<std::endl<<slice<<std::endl;
+			us[i].col(j) *= slice.norm(); //TensorOperations::coreSliceNorms[i][j];
+			n.push_back(slice.norm()); //TensorOperations::coreSliceNorms[i][j]);
 		}
 		usNorms.push_back(n);
 	}
-	//std::cout << "U1 nach Scale: " << std::endl << us[0] << std::endl;
 	
-	BitIO::writeBit(usNorms.size(), 64);
 	for(int i = 0;i < usNorms.size();i++) {//TODO vector of vectors
 		BitIO::writeBit(usNorms[i].size(),64);
 		for (int j = 0;j < usNorms[i].size();j++) {
@@ -305,7 +301,6 @@ void TTHRESHEncoding::compress(Eigen::Tensor<myTensorType, 3> b, std::vector<Eig
 			BitIO::writeBit(tmp, 64);//slicenorms abspeichern
 		}
 	}
-
 
 	std::vector<std::vector<std::vector<int>>> usRle;
 	std::vector<std::vector<std::vector<bool>>> usRaw;

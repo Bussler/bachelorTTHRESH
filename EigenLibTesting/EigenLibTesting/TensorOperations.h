@@ -8,6 +8,7 @@ typedef double myTensorType;
 
 namespace TensorOperations
 {
+	extern std::vector< std::vector < double>>coreSliceNorms;
 
 	Eigen::MatrixXd unfold(Eigen::Tensor<myTensorType, 3> input, int mode);
 	Eigen::Tensor<myTensorType,3> fold(Eigen::MatrixXd input, int mode, int x, int y, int z);
