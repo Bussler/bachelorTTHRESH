@@ -24,7 +24,8 @@ namespace TTHRESHEncoding {
 	};
 
 	unsigned * getBits(uint64_t* n, int k, int numBits);
-	
+	double calcEntropie(std::vector<int> rlePart);
+
 	std::vector<uint64_t> encodeRLE(double * coefficients, int numC, double errorTarget, bool isCore, std::vector<std::vector<int>> & rle, std::vector<std::vector<bool>>& raw, double& scale, std::vector<bool>& signs);
 	double* decodeRLE(std::vector<std::vector<int>> rle, std::vector<std::vector<bool>> raw, int numC, double scale, std::vector<bool> signs);
 	

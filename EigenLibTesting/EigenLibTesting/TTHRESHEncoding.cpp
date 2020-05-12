@@ -10,7 +10,6 @@ uint64_t TTHRESHEncoding::half = TTHRESHEncoding::oneFourth*2;
 uint64_t TTHRESHEncoding::threeFourth = TTHRESHEncoding::oneFourth * 3;
 
 double price = -1, totalBitsCore= -1, errorCore=-1;//values for alpha calc
-int encodingBitsAc = 0;
 
 //stores the k-th bit of all n in bit-array
 unsigned * TTHRESHEncoding::getBits(uint64_t* n, int k, int numBits)
@@ -22,6 +21,23 @@ unsigned * TTHRESHEncoding::getBits(uint64_t* n, int k, int numBits)
 	}
 	
 	return bits;
+}
+
+double TTHRESHEncoding::calcEntropie(std::vector<int> rlePart)
+{
+	std::map<int, std::pair<double, double>> freq;// key -> (count of key, probability)
+	for (int i = 0; i < rlePart.size(); i++) {
+		freq[rlePart[i]].first += 1; //count the occurences of the key
+	}
+
+	double entropy = 0;
+
+	for (auto it = freq.begin(); it != freq.end(); it++) {//calculate the probability
+		(it->second).second = (it->second).first / rlePart.size();
+		entropy += ((it->second).second) * std::log2((it->second).second);
+	}
+
+	return (-1)*entropy;
 }
 
 //encode the coefficients with the help of rle/verbatim until error is below given threshold. Results are safed in rle and raw vectors: Adapted from rballester Github (Alpha, SSE calc)
@@ -116,10 +132,9 @@ std::vector<uint64_t> TTHRESHEncoding::encodeRLE(double * c, int numC, double er
 		long double k = (unsigned long long(1) << p);
 		sse += (-2)*k*planeSSE + k * k*planeOnes;//updating sse if exit condition was not reached
 
-		
-		//TODO encode rle/raw here, don't safe them first into vectors
 		totalBits += 64;//saving rawsize
-		totalBits += 180;//saving rle, annahme: pro rle werden 254 bit gespeichert
+		totalBits += std::ceil(calcEntropie(cRLE));//calc bits needed with AC -> Entropy (+ 192 for fixed amount?)
+
 		error = sqrt(double(sse/frobNormSq));
 		if (lastTotalBits>0) {
 			if (isCore) {
@@ -155,7 +170,7 @@ std::vector<uint64_t> TTHRESHEncoding::encodeRLE(double * c, int numC, double er
 		}
 	}
 
-	//save rle
+	//save rle TODO switch to vector
 	BitIO::writeBit(rle.size(), 64);//overall size
 	for (int i = 0; i < rle.size();i++) {
 		encodeAC(rle[i]);//encode rle with ac
@@ -169,10 +184,8 @@ std::vector<uint64_t> TTHRESHEncoding::encodeRLE(double * c, int numC, double er
 	BitIO::writeBit(signs.size(),64);//saving size
 	for (int i = 0;i < signs.size();i++) {
 		BitIO::writeBit(signs[i], 1);//saving data
-		totalBits++;//TODO also safe size, so +64 at beginning?
+		totalBits++;
 	}
-
-	//TODO: Encoded Bit innerhalb berechnen: wie viele bit werden innerhalb der schleife für rle etc benötigt? Und wie kann rle, raw innerhalb der schleife geschrieben werden und gleichzeitig size der vektoren gespeichert werden?
 
 	if (isCore) {//safe alpha values for core
 		price = sizeDelta / errorDelta;
@@ -330,7 +343,6 @@ void TTHRESHEncoding::compress(Eigen::Tensor<myTensorType, 3> b, std::vector<Eig
 //encode the rle with AC Bit-Plane wise: Taken from rballester Github
 void TTHRESHEncoding::encodeAC(std::vector<int> rle)
 {
-	encodingBitsAc = 0;
 
 	//creating frequency/Interval Table : The model
 	std::map<uint64_t, std::pair<uint64_t, uint64_t>> freq;// key -> (count of key, lower bound Interval)
@@ -347,7 +359,6 @@ void TTHRESHEncoding::encodeAC(std::vector<int> rle)
 	//saving the model for later decode
 	uint64_t freqSize = freq.size();
 	BitIO::writeBit(freqSize, 64);
-	encodingBitsAc += 64;
 
 	for (auto it = freq.begin(); it != freq.end(); it++) {
 		uint64_t key = it->first;
@@ -378,15 +389,12 @@ void TTHRESHEncoding::encodeAC(std::vector<int> rle)
 		BitIO::writeBit(probLen, 6);
 		BitIO::writeBit(prob, probLen);//save prob
 
-		encodingBitsAc += 6 + 6 + keyLen + probLen;
-
 		//BitIO::writeBit(key, 32);//save key and frequenzy with 32 bit
 		//BitIO::writeBit(prob, 32);
 	}
 
 	uint64_t rleSize = rle.size();
 	BitIO::writeBit(rleSize, 64);//save the number of symbols to encode
-	encodingBitsAc += 64;
 
 	//after model is built, encode input
 	int pendingBits = 0; //Counter to store pending bits when low and high are converging
@@ -441,17 +449,13 @@ void TTHRESHEncoding::encodeAC(std::vector<int> rle)
 
 	//Write trailing 0s
 	BitIO::writeBit(0, ACValueBits- 2);
-	encodingBitsAc += ACValueBits - 2;//TODO encoding bits in rle einbinden!
-	std::cout << "AC Bit: " << encodingBitsAc << std::endl;
 }
 
 void TTHRESHEncoding::putBitPlusPending(bool bit, int & pending)
 {
 	BitIO::writeBit(bit,1);
-	encodingBitsAc++;
 	for (int i = 0;i < pending;i++) {
 		BitIO::writeBit(!bit,1);
-		encodingBitsAc++;
 	}
 	pending = 0;
 }
