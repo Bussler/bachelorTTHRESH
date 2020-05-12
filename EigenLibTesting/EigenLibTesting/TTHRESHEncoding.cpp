@@ -170,11 +170,7 @@ std::vector<uint64_t> TTHRESHEncoding::encodeRLE(double * c, int numC, double er
 		}
 	}
 
-	//save rle TODO switch to vector
-	BitIO::writeBit(rle.size(), 64);//overall size
-	for (int i = 0; i < rle.size();i++) {
-		encodeAC(rle[i]);//encode rle with ac
-	}
+	encodeACVektor(rle); //save rle
 
 	//saving signs
 	for (int i = 0;i < numC;i++) {
@@ -340,7 +336,8 @@ void TTHRESHEncoding::compress(Eigen::Tensor<myTensorType, 3> b, std::vector<Eig
 
 }
 
-//encode the rle with AC Bit-Plane wise: Taken from rballester Github
+
+/*//encode the rle with AC Bit-Plane wise: Taken from rballester Github
 void TTHRESHEncoding::encodeAC(std::vector<int> rle)
 {
 
@@ -449,7 +446,7 @@ void TTHRESHEncoding::encodeAC(std::vector<int> rle)
 
 	//Write trailing 0s
 	BitIO::writeBit(0, ACValueBits- 2);
-}
+}*/
 
 void TTHRESHEncoding::putBitPlusPending(bool bit, int & pending)
 {
@@ -460,7 +457,7 @@ void TTHRESHEncoding::putBitPlusPending(bool bit, int & pending)
 	pending = 0;
 }
 
-//decode algorithm of ac: taken from rballester Github
+/*//decode algorithm of ac: taken from rballester Github
 void TTHRESHEncoding::decodeAC(std::vector<int>& rle)
 {
 	//read and recreate the saved frequenzy table
@@ -548,11 +545,10 @@ void TTHRESHEncoding::decodeAC(std::vector<int>& rle)
 
 	}
 
-}
+}*/
 
 
-
-//try to encode and write the whole vektor with a single freq model
+//try to encode and write the whole vektor with a single freq model //Encryption taken from rballester Github
 void TTHRESHEncoding::encodeACVektor(std::vector<std::vector<int>> rleVek)
 {
 	int wholeSize = 0;
@@ -653,6 +649,7 @@ void TTHRESHEncoding::encodeACVektor(std::vector<std::vector<int>> rleVek)
 
 }
 
+//decode algorithm of ac: taken from rballester Github
 void TTHRESHEncoding::decodeACVektor(std::vector<std::vector<int>>& rleVek)
 {
 	//read and recreate the saved frequenzy table

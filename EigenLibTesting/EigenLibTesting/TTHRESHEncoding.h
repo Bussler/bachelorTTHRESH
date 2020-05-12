@@ -32,10 +32,10 @@ namespace TTHRESHEncoding {
 	void compress(Eigen::Tensor<myTensorType, 3> b, std::vector<Eigen::MatrixXd> us, double errorTarget, ErrorType etype, std::vector<std::vector<int>> & rle, std::vector<std::vector<bool>>& raw, double& scale, std::vector<bool>& signs);
 
 	//TODO maybe better to encode whole rle vector<vector> at once
-	void encodeAC(std::vector<int> rle);
+	//void encodeAC(std::vector<int> rle);
 	void putBitPlusPending(bool bit, int& pending);
 
-	void decodeAC(std::vector<int>& rle);
+	//void decodeAC(std::vector<int>& rle);
 
 	void encodeACVektor(std::vector<std::vector<int>> rleVek);
 	void decodeACVektor(std::vector<std::vector<int>>& rleVek);

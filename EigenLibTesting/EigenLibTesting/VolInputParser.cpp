@@ -290,12 +290,7 @@ void VolInputParser::readRleData(std::vector<std::vector<int>>& rle, std::vector
 	}
 
 	//third rle
-	int rleSize = BitIO::readBit(64);
-	for (int i = 0;i < rleSize;i++) {
-		std::vector<int> cur;
-		TTHRESHEncoding::decodeAC(cur);
-		rle.push_back(cur);
-	}
+	TTHRESHEncoding::decodeACVektor(rle);
 
 	//fourth signs
 	int signsSize = BitIO::readBit(64);
