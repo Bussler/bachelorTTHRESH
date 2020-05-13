@@ -308,7 +308,6 @@ void TTHRESHEncoding::compress(Eigen::Tensor<myTensorType, 3> b, std::vector<Eig
 
 		for (int j = 0;j < us[i].cols();j++) {
 			Eigen::MatrixXd slice = TensorOperations::getSlice(maskTensor, converted, j);
-			//Eigen::MatrixXd slice = TensorOperations::getSlice(maskTensor, i+1, j);
 			us[i].col(j) *= slice.norm(); //TensorOperations::coreSliceNorms[i][j];
 			n.push_back(slice.norm()); //TensorOperations::coreSliceNorms[i][j]);
 		}
@@ -317,12 +316,10 @@ void TTHRESHEncoding::compress(Eigen::Tensor<myTensorType, 3> b, std::vector<Eig
 	
 	for(int i = 0;i < usNorms.size();i++) {
 		BitIO::writeBit(usNorms[i].size(),64);
-		std::cout << "Debug: NormSize: " << usNorms[i].size() << std::endl;
 		for (int j = 0;j < usNorms[i].size();j++) {
 			uint64_t tmp;
 			memcpy(&tmp, (void*)&usNorms[i][j], sizeof(usNorms[i][j]));
 			BitIO::writeBit(tmp, 64);//slicenorms abspeichern
-			std::cout << "Debug: Norms "<<i<<" "<<j<<" " << usNorms[i][j] << std::endl;
 		}
 	}
 	

@@ -85,7 +85,7 @@ uint64_t BitIO::readBit(int numBits)
 
 void BitIO::openRead(char * name)
 {
-	rw.rFile = fopen(name, "r");
+	rw.rFile = fopen(name, "rb");
 }
 
 void BitIO::closeRead()
@@ -97,7 +97,7 @@ void BitIO::closeRead()
 
 void BitIO::openWrite(char * name)
 {
-	rw.wFile = fopen(name, "w");
+	rw.wFile = fopen(name, "wb");
 }
 
 void BitIO::closeWrite()
@@ -111,12 +111,12 @@ void BitIO::closeWrite()
 
 VolInputParser::VolInputParser()
 {
-	DummyTensor = Eigen::Tensor<myTensorType, 3>(2, 3, 2);
+	/*DummyTensor = Eigen::Tensor<myTensorType, 3>(2, 3, 2);
 	DummyTensor.setValues({ { { 1,7 },{ 3,9 },{ 5,11 } },
-							{ { 2,8 },{ 4,10 },{ 6,12 } } });
+							{ { 2,8 },{ 4,10 },{ 6,12 } } });*/
 
-	/*int y = 4;//4; 7
-	int x = 3;//3; 5
+	int y = 7;//4; 7
+	int x = 5;//3; 5
 	int z = 2;
 	DummyTensor = Eigen::Tensor<myTensorType, 3>(y,x,z);
 	double counter = 0;
@@ -126,7 +126,7 @@ VolInputParser::VolInputParser()
 				DummyTensor(i,j,k) = counter++;
 			}
 		}
-	}*/
+	}
 
 	std::cout << "Dummy: " << std::endl << DummyTensor << std::endl;
 }
