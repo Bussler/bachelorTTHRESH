@@ -115,6 +115,19 @@ VolInputParser::VolInputParser()
 	DummyTensor.setValues({ { { 1,7 },{ 3,9 },{ 5,11 } },
 							{ { 2,8 },{ 4,10 },{ 6,12 } } });
 
+	/*int y = 4;//4; 7
+	int x = 3;//3; 5
+	int z = 2;
+	DummyTensor = Eigen::Tensor<myTensorType, 3>(y,x,z);
+	double counter = 0;
+	for (int i = 0;i < y; i++) {
+		for (int j = 0;j < x; j++) {
+			for (int k = 0;k < z;k++) {
+				DummyTensor(i,j,k) = counter++;
+			}
+		}
+	}*/
+
 	std::cout << "Dummy: " << std::endl << DummyTensor << std::endl;
 }
 
@@ -246,13 +259,6 @@ void VolInputParser::writeCharacteristicData(int dim1, int dim2, int dim3, int U
 	BitIO::writeBit(uint64_t(U3R), 32);
 	BitIO::writeBit(uint64_t(U3C), 32);
 
-	/*uint64_t tmp;
-	memcpy(&tmp, (void*)&scale, sizeof(scale));
-	BitIO::writeBit(tmp, 64);*/
-
-	//BitIO::writeRemainingBit();
-	//BitIO::closeWrite();
-
 }
 
 void VolInputParser::readCharacteristicData()
@@ -305,11 +311,11 @@ void VolInputParser::readRleData(std::vector<std::vector<int>>& rle, std::vector
 void VolInputParser::readNormData()
 {
 	for (int i = 0; i < 3; i++) {
-		int numElem = BitIO::readBit(64);
+		uint64_t numElem = BitIO::readBit(64);
 		std::vector<double> cur;
 		for (int j = 0;j < numElem;j++) {
 			double val;
-			int64_t readVal = BitIO::readBit(64);
+			uint64_t readVal = BitIO::readBit(64);
 			memcpy(&val, (void*)&readVal, sizeof(readVal));
 			cur.push_back(val);
 		}

@@ -293,24 +293,39 @@ void TTHRESHEncoding::compress(Eigen::Tensor<myTensorType, 3> b, std::vector<Eig
 
 	for (int i = 0; i < us.size();i++) {//multiply each U col with core-slice norm TODO umschreiben
 		std::vector<double> n;
+		int converted = 0;
+		switch (i)
+		{
+		case 0: converted = 3;
+			break;
+
+		case 1: converted = 2;
+			break;
+
+		case 2: converted = 1;
+			break;
+		}
+
 		for (int j = 0;j < us[i].cols();j++) {
-			
-			Eigen::MatrixXd slice = TensorOperations::getSlice(maskTensor, i+1, j);
+			Eigen::MatrixXd slice = TensorOperations::getSlice(maskTensor, converted, j);
+			//Eigen::MatrixXd slice = TensorOperations::getSlice(maskTensor, i+1, j);
 			us[i].col(j) *= slice.norm(); //TensorOperations::coreSliceNorms[i][j];
 			n.push_back(slice.norm()); //TensorOperations::coreSliceNorms[i][j]);
 		}
 		usNorms.push_back(n);
 	}
 	
-	for(int i = 0;i < usNorms.size();i++) {//TODO vector of vectors
+	for(int i = 0;i < usNorms.size();i++) {
 		BitIO::writeBit(usNorms[i].size(),64);
+		std::cout << "Debug: NormSize: " << usNorms[i].size() << std::endl;
 		for (int j = 0;j < usNorms[i].size();j++) {
 			uint64_t tmp;
 			memcpy(&tmp, (void*)&usNorms[i][j], sizeof(usNorms[i][j]));
 			BitIO::writeBit(tmp, 64);//slicenorms abspeichern
+			std::cout << "Debug: Norms "<<i<<" "<<j<<" " << usNorms[i][j] << std::endl;
 		}
 	}
-
+	
 	std::vector<std::vector<std::vector<int>>> usRle;
 	std::vector<std::vector<std::vector<bool>>> usRaw;
 	std::vector<double> usScales;
@@ -578,6 +593,7 @@ void TTHRESHEncoding::encodeACVektor(std::vector<std::vector<int>> rleVek)
 
 		BitIO::writeBit(key, 32);//save key and frequenzy with 32 bit
 		BitIO::writeBit(prob, 32);
+		//std::cout << "Debug Key: " << key << " Prob: " << prob << std::endl;
 	}
 
 	uint64_t rleVekSize = rleVek.size();
@@ -667,10 +683,10 @@ void TTHRESHEncoding::decodeACVektor(std::vector<std::vector<int>>& rleVek)
 	}
 
 	uint64_t rleVekSize = BitIO::readBit(64);
-	std::vector<int> rleSizes;
+	std::vector<uint64_t> rleSizes;
 	int wholeSize = 0;
 	for (int i = 0;i < rleVekSize;i++) {
-		int curVekSize = BitIO::readBit(64);
+		uint64_t curVekSize = BitIO::readBit(64);
 		rleSizes.push_back(curVekSize);
 		wholeSize += curVekSize;
 	}

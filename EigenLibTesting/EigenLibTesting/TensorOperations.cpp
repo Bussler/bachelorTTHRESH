@@ -26,7 +26,8 @@ Eigen::MatrixXd TensorOperations::unfold(Eigen::Tensor<myTensorType, 3> input, i
 		mat = Eigen::MatrixXd(dimY, dimX);
 		for (int x = 0; x < dimX; x++) {
 			for (int y = 0; y < dimY; y++) {
-				mat(y, x) = input(x%input.dimension(2), y, x / input.dimension(2));
+				mat(y, x) = input(x / input.dimension(2), y, x % input.dimension(2));
+				//mat(y, x) = input(x%input.dimension(2), y, x / input.dimension(2));
 			}
 		}
 		break;
@@ -65,7 +66,8 @@ Eigen::Tensor<myTensorType, 3> TensorOperations::fold(Eigen::MatrixXd input, int
 	case 2:
 		for (int x = 0; x < dimX; x++) {
 			for (int y = 0; y < dimY; y++) {
-				tensor(x%tensor.dimension(2),y,x/tensor.dimension(2)) = input(y, x);
+				//tensor(x%tensor.dimension(2),y,x/tensor.dimension(2)) = input(y, x);
+				tensor(x/tensor.dimension(2), y, x % tensor.dimension(2)) = input(y, x);
 			}
 		}
 		break;
@@ -184,7 +186,7 @@ Eigen::MatrixXd TensorOperations::getSlice(Eigen::Tensor<myTensorType, 3> T, int
 	Eigen::MatrixXd slice;
 	Eigen::Tensor<myTensorType, 2> sl;
 
-	
+
 	switch (dim)
 	{
 	case 1:
