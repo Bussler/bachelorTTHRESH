@@ -588,9 +588,33 @@ void TTHRESHEncoding::encodeACVektor(std::vector<std::vector<int>> rleVek)
 		uint64_t key = it->first;
 		uint64_t prob = (it->second).first;
 
-		BitIO::writeBit(key, 32);//save key and frequenzy with 32 bit
-		BitIO::writeBit(prob, 32);
-		//std::cout << "Debug Key: " << key << " Prob: " << prob << std::endl;
+		//encode key len, then key to safe space
+		uint8_t keyLen = 0;
+		uint64_t keyCopy = key;
+		while (keyCopy > 0) {
+			keyCopy >>= 1;
+			keyLen++;
+		}
+		if (keyLen == 0)
+			keyLen = 1;
+
+		BitIO::writeBit(keyLen, 6);
+		BitIO::writeBit(key, keyLen);//save key 
+
+		uint8_t probLen = 0;
+		uint64_t probCopy = prob;
+		while (probCopy > 0) {
+			probCopy >>= 1;
+			probLen++;
+		}
+		if (probLen == 0)
+			probLen = 1;
+
+		BitIO::writeBit(probLen, 6);
+		BitIO::writeBit(prob, probLen);//save prob
+
+		//BitIO::writeBit(key, 32);//save key and frequenzy with 32 bit
+		//BitIO::writeBit(prob, 32);
 	}
 
 	uint64_t rleVekSize = rleVek.size();
@@ -672,8 +696,12 @@ void TTHRESHEncoding::decodeACVektor(std::vector<std::vector<int>>& rleVek)
 	uint64_t count = 0;
 
 	for (int i = 0;i < freqSize;i++) {
-		uint64_t key = BitIO::readBit(32);
-		uint64_t prob = BitIO::readBit(32);
+		//uint64_t key = BitIO::readBit(32);
+		//uint64_t prob = BitIO::readBit(32);
+		uint64_t keyLen = BitIO::readBit(6);
+		uint64_t key = BitIO::readBit(keyLen);
+		uint64_t probLen = BitIO::readBit(6);
+		uint64_t prob = BitIO::readBit(probLen);
 
 		freq[count] = key;
 		count += prob;
