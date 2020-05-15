@@ -10,19 +10,23 @@ namespace TensorOperations
 {
 	extern std::vector< std::vector < double>>coreSliceNorms;
 
-	Eigen::MatrixXd unfold(Eigen::Tensor<myTensorType, 3> input, int mode);
-	Eigen::Tensor<myTensorType,3> fold(Eigen::MatrixXd input, int mode, int x, int y, int z);
+	Eigen::MatrixXd unfold(Eigen::Tensor<myTensorType, 3>& input, int mode);
+	Eigen::Tensor<myTensorType,3> fold(Eigen::MatrixXd & input, int mode, int x, int y, int z);
 
-	Eigen::MatrixXd computeEigenvectors(Eigen::MatrixXd B);
+	Eigen::MatrixXd unfoldTensor(Eigen::Tensor<myTensorType, 3> input, int mode);
 
-	void HOSVD(Eigen::Tensor<myTensorType, 3> T, Eigen::Tensor<myTensorType, 3>& B, std::vector<Eigen::MatrixXd>& Us);
+	Eigen::MatrixXd computeEigenvectors(Eigen::MatrixXd& B);
 
-	void TTM(Eigen::Tensor<myTensorType, 3>& T, Eigen::MatrixXd U, int mode);
+	void HOSVD(Eigen::Tensor<myTensorType, 3>& T, Eigen::Tensor<myTensorType, 3>& B, std::vector<Eigen::MatrixXd>& Us);
 
-	void decompress_HOSVD(Eigen::Tensor<myTensorType, 3> B, Eigen::Tensor<myTensorType, 3>& T, std::vector<Eigen::MatrixXd> Us);
+	void TTM(Eigen::Tensor<myTensorType, 3>& T, Eigen::MatrixXd & U, int mode);
+
+	void decompress_HOSVD(Eigen::Tensor<myTensorType, 3>& B, Eigen::Tensor<myTensorType, 3>& T, std::vector<Eigen::MatrixXd>& Us);
 
 	Eigen::Tensor<myTensorType, 3> createTensorFromArray(myTensorType* data, int d1, int d2, int d3);
 	Eigen::MatrixXd createMatrixFromArray(double* data, int d1, int d2);
 
-	Eigen::MatrixXd getSlice(Eigen::Tensor<myTensorType, 3> T, int dim, int i);
+	Eigen::MatrixXd getSlice(Eigen::Tensor<myTensorType, 3>& T, int dim, int i);
+
+	void calcCoreSliceNorms(Eigen::Tensor<myTensorType, 3> B);
 }

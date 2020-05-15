@@ -192,7 +192,7 @@ std::vector<uint64_t> TTHRESHEncoding::encodeRLE(double * c, int numC, double er
 	return mask;
 }
 
-double * TTHRESHEncoding::decodeRLE(std::vector<std::vector<int>> rle, std::vector<std::vector<bool>> raw, int numC, double scale, std::vector<bool> signs)
+double * TTHRESHEncoding::decodeRLE(std::vector<std::vector<int>>& rle, std::vector<std::vector<bool>>& raw, int numC, double scale, std::vector<bool>& signs)
 {
 	//convert back from rle/verbatim
 	std::vector<uint64_t> mask(numC, 0);//holds the bits for coefficients
@@ -258,7 +258,7 @@ double * TTHRESHEncoding::decodeRLE(std::vector<std::vector<int>> rle, std::vect
 }
 
 //convert sse according to specified errorType and starts the rle/verbatim encoding process
-void TTHRESHEncoding::compress(Eigen::Tensor<myTensorType, 3> b, std::vector<Eigen::MatrixXd> us, double errorTarget, ErrorType etype, std::vector<std::vector<int>>& rle, std::vector<std::vector<bool>>& raw, double& scale, std::vector<bool>& signs)
+void TTHRESHEncoding::compress(Eigen::Tensor<myTensorType, 3>& b, std::vector<Eigen::MatrixXd>& us, double errorTarget, ErrorType etype, std::vector<std::vector<int>>& rle, std::vector<std::vector<bool>>& raw, double& scale, std::vector<bool>& signs)
 {
 	double* coefficients = b.data();
 	int numC = b.dimension(0)*b.dimension(1)*b.dimension(2);
@@ -561,7 +561,7 @@ void TTHRESHEncoding::decodeAC(std::vector<int>& rle)
 
 
 //try to encode and write the whole vektor with a single freq model //Encryption taken from rballester Github
-void TTHRESHEncoding::encodeACVektor(std::vector<std::vector<int>> rleVek)
+void TTHRESHEncoding::encodeACVektor(std::vector<std::vector<int>>& rleVek)
 {
 	int wholeSize = 0;
 	//creating frequency/Interval Table : The model
@@ -727,7 +727,7 @@ void TTHRESHEncoding::decodeACVektor(std::vector<std::vector<int>>& rleVek)
 		uint64_t high = max;
 		uint64_t low = 0;
 		uint64_t val = 0; //encoded value to decode
-		for (int i = 0;i < ACValueBits;i++) { //TODO problem with little endian read in, instead shift all bit one by one
+		for (int i = 0;i < ACValueBits;i++) { //problem with little endian read in, instead shift all bit one by one
 			val <<= 1;
 			val += BitIO::readBit(1) ? 1 : 0;
 		}
