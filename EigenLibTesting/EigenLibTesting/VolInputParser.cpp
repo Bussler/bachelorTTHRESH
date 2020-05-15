@@ -115,9 +115,9 @@ VolInputParser::VolInputParser()
 	DummyTensor.setValues({ { { 1,7 },{ 3,9 },{ 5,11 } },
 							{ { 2,8 },{ 4,10 },{ 6,12 } } });*/
 
-	int y = 10;//4; 7; 277
-	int x = 10;//3; 5; 277
-	int z = 7;//2; 164
+	int y = 100;//4; 7; 277
+	int x = 100;//3; 5; 277
+	int z = 100;//2; 164
 	//DummyTensor = Eigen::Tensor<myTensorType, 3>(y,x,z);
 	TensorData = Eigen::Tensor<myTensorType, 3>(y, x, z);
 	double counter = 0;
@@ -130,7 +130,7 @@ VolInputParser::VolInputParser()
 		}
 	}
 
-	std::cout << "Dummy: " << std::endl << TensorData << std::endl;
+	//std::cout << "Dummy: " << std::endl << TensorData << std::endl;
 }
 
 VolInputParser::VolInputParser(char * txtname)
