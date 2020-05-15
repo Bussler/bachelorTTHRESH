@@ -111,24 +111,26 @@ void BitIO::closeWrite()
 
 VolInputParser::VolInputParser()
 {
-	DummyTensor = Eigen::Tensor<myTensorType, 3>(2, 3, 2);
+	/*DummyTensor = Eigen::Tensor<myTensorType, 3>(2, 3, 2);
 	DummyTensor.setValues({ { { 1,7 },{ 3,9 },{ 5,11 } },
-							{ { 2,8 },{ 4,10 },{ 6,12 } } });
+							{ { 2,8 },{ 4,10 },{ 6,12 } } });*/
 
-	int y = 7;//4; 7; 277
-	int x = 5;//3; 5; 277
-	int z = 2;//2; 164
-	DummyTensor = Eigen::Tensor<myTensorType, 3>(y,x,z);
+	int y = 10;//4; 7; 277
+	int x = 10;//3; 5; 277
+	int z = 7;//2; 164
+	//DummyTensor = Eigen::Tensor<myTensorType, 3>(y,x,z);
+	TensorData = Eigen::Tensor<myTensorType, 3>(y, x, z);
 	double counter = 0;
 	for (int i = 0;i < y; i++) {
 		for (int j = 0;j < x; j++) {
 			for (int k = 0;k < z;k++) {
-				DummyTensor(i,j,k) = counter++;
+				//DummyTensor(i,j,k) = counter++;
+				TensorData(i, j, k) = counter++;
 			}
 		}
 	}
 
-	//std::cout << "Dummy: " << std::endl << DummyTensor << std::endl;
+	std::cout << "Dummy: " << std::endl << TensorData << std::endl;
 }
 
 VolInputParser::VolInputParser(char * txtname)
