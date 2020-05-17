@@ -30,6 +30,9 @@
     <ClInclude Include="TTHRESHEncoding.h">
       <Filter>Headerdateien</Filter>
     </ClInclude>
+    <ClInclude Include="HuffmanCode.h">
+      <Filter>Headerdateien</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="stdafx.cpp">
@@ -45,6 +48,9 @@
       <Filter>Quelldateien</Filter>
     </ClCompile>
     <ClCompile Include="TTHRESHEncoding.cpp">
+      <Filter>Quelldateien</Filter>
+    </ClCompile>
+    <ClCompile Include="HuffmanCode.cpp">
       <Filter>Quelldateien</Filter>
     </ClCompile>
   </ItemGroup>
