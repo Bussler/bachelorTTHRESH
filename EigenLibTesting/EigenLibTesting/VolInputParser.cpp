@@ -115,9 +115,9 @@ VolInputParser::VolInputParser()
 	DummyTensor.setValues({ { { 1,7 },{ 3,9 },{ 5,11 } },
 							{ { 2,8 },{ 4,10 },{ 6,12 } } });*/
 
-	int y = 100;//4; 7; 277
-	int x = 100;//3; 5; 277
-	int z = 100;//2; 164
+	int y = 7;//4; 7; 277
+	int x = 5;//3; 5; 277
+	int z = 2;//2; 164
 	//DummyTensor = Eigen::Tensor<myTensorType, 3>(y,x,z);
 	TensorData = Eigen::Tensor<myTensorType, 3>(y, x, z);
 	double counter = 0;
