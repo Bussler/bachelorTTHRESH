@@ -7,6 +7,7 @@
 #include "TensorOperations.h"
 #include "TTHRESHEncoding.h"
 #include <intrin.h>
+#include "HuffmanCode.h"
 
 namespace BitIO {
 

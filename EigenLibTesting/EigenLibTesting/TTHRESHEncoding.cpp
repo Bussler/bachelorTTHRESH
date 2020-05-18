@@ -11,18 +11,8 @@ uint64_t TTHRESHEncoding::threeFourth = TTHRESHEncoding::oneFourth * 3;
 
 double price = -1, totalBitsCore= -1, errorCore=-1;//values for alpha calc
 
-//stores the k-th bit of all n in bit-array
-unsigned * TTHRESHEncoding::getBits(uint64_t* n, int k, int numBits)
-{
-	unsigned* bits = (unsigned*)malloc(sizeof(unsigned) * numBits);
 
-	for (int i = 0; i < numBits; i++) {
-		bits[i] = ((n[i] >> k) & 1); //right shifting desired bit and masking with 1
-	}
-	
-	return bits;
-}
-
+//calculates entropie of input: used as stopping criterion to get the number of used bits
 double TTHRESHEncoding::calcEntropie(std::vector<int> rlePart)
 {
 	std::map<int, std::pair<double, double>> freq;// key -> (count of key, probability)
@@ -40,7 +30,7 @@ double TTHRESHEncoding::calcEntropie(std::vector<int> rlePart)
 	return (-1)*entropy;
 }
 
-//encode the coefficients with the help of rle/verbatim until error is below given threshold. Results are safed in rle and raw vectors: Adapted from rballester Github (Alpha, SSE calc)
+//encode the coefficients with the help of rle/verbatim until error is below given threshold. Results are written and safed in rle and raw vectors(debugging): Adapted from rballester Github (Alpha, SSE calc)
 std::vector<uint64_t> TTHRESHEncoding::encodeRLE(double * c, int numC, double errorTarget, bool isCore, std::vector<std::vector<int>>& rle, std::vector<std::vector<bool>>& raw, double& scale, std::vector<bool>& signs)
 {
 	double max = 0;
@@ -171,6 +161,8 @@ std::vector<uint64_t> TTHRESHEncoding::encodeRLE(double * c, int numC, double er
 	}
 
 	encodeACVektor(rle); //save rle
+	//HuffmanCode coder;
+	//coder.encodeData(rle);
 
 	//saving signs
 	for (int i = 0;i < numC;i++) {
@@ -192,6 +184,7 @@ std::vector<uint64_t> TTHRESHEncoding::encodeRLE(double * c, int numC, double er
 	return mask;
 }
 
+//decodes the core-data from rle and raw vectors
 double * TTHRESHEncoding::decodeRLE(std::vector<std::vector<int>>& rle, std::vector<std::vector<bool>>& raw, int numC, double scale, std::vector<bool>& signs)
 {
 	//convert back from rle/verbatim
@@ -460,14 +453,6 @@ void TTHRESHEncoding::encodeAC(std::vector<int> rle)
 	BitIO::writeBit(0, ACValueBits- 2);
 }*/
 
-void TTHRESHEncoding::putBitPlusPending(bool bit, int & pending)
-{
-	BitIO::writeBit(bit,1);
-	for (int i = 0;i < pending;i++) {
-		BitIO::writeBit(!bit,1);
-	}
-	pending = 0;
-}
 
 /*//decode algorithm of ac: taken from rballester Github
 void TTHRESHEncoding::decodeAC(std::vector<int>& rle)
@@ -559,8 +544,17 @@ void TTHRESHEncoding::decodeAC(std::vector<int>& rle)
 
 }*/
 
+//helper Method for AC-Coding: write calculated bit and enclose still pending bits
+void TTHRESHEncoding::putBitPlusPending(bool bit, int & pending)
+{
+	BitIO::writeBit(bit, 1);
+	for (int i = 0;i < pending;i++) {
+		BitIO::writeBit(!bit, 1);
+	}
+	pending = 0;
+}
 
-//try to encode and write the whole vektor with a single freq model //Encryption taken from rballester Github
+//Encode and write the whole rle-vektor(all bitplanes) with a single freq model //Encryption taken from rballester Github
 void TTHRESHEncoding::encodeACVektor(std::vector<std::vector<int>>& rleVek)
 {
 	int wholeSize = 0;
@@ -612,9 +606,6 @@ void TTHRESHEncoding::encodeACVektor(std::vector<std::vector<int>>& rleVek)
 
 		BitIO::writeBit(probLen, 6);
 		BitIO::writeBit(prob, probLen);//save prob
-
-		//BitIO::writeBit(key, 32);//save key and frequenzy with 32 bit
-		//BitIO::writeBit(prob, 32);
 	}
 
 	uint64_t rleVekSize = rleVek.size();
@@ -625,7 +616,7 @@ void TTHRESHEncoding::encodeACVektor(std::vector<std::vector<int>>& rleVek)
 		BitIO::writeBit(rleSize, 64);//save the number of symbols to encode
 	}
 	
-	//after model is built, encode input
+	//after model is built and safed, encode input
 	int pendingBits = 0; //Counter to store pending bits when low and high are converging
 	uint64_t low = 0; //low limit for interval, can only increase
 	uint64_t high = max; //high limit for interval, can only decrease
@@ -686,7 +677,7 @@ void TTHRESHEncoding::encodeACVektor(std::vector<std::vector<int>>& rleVek)
 
 }
 
-//decode algorithm of ac: taken from rballester Github
+//Reads in and decodes Rle-Vector for later decoding of core. Decode algorithm of ac: taken from rballester Github
 void TTHRESHEncoding::decodeACVektor(std::vector<std::vector<int>>& rleVek)
 {
 	//read and recreate the saved frequenzy table
@@ -696,8 +687,6 @@ void TTHRESHEncoding::decodeACVektor(std::vector<std::vector<int>>& rleVek)
 	uint64_t count = 0;
 
 	for (int i = 0;i < freqSize;i++) {
-		//uint64_t key = BitIO::readBit(32);
-		//uint64_t prob = BitIO::readBit(32);
 		uint64_t keyLen = BitIO::readBit(6);
 		uint64_t key = BitIO::readBit(keyLen);
 		uint64_t probLen = BitIO::readBit(6);
@@ -707,6 +696,7 @@ void TTHRESHEncoding::decodeACVektor(std::vector<std::vector<int>>& rleVek)
 		count += prob;
 	}
 
+	//read in previous size-values for vectors
 	uint64_t rleVekSize = BitIO::readBit(64);
 	std::vector<uint64_t> rleSizes;
 	int wholeSize = 0;
@@ -718,78 +708,78 @@ void TTHRESHEncoding::decodeACVektor(std::vector<std::vector<int>>& rleVek)
 
 	freq[wholeSize] = 0;//we need another upper bound
 
-		std::vector<int> curPlane;
+	std::vector<int> curPlane;
 
-		int rleVekCounter = 0;
-		uint64_t rleSize = rleSizes[rleVekCounter++];
+	int rleVekCounter = 0;
+	uint64_t rleSize = rleSizes[rleVekCounter++];
 
-		//decoding
-		uint64_t high = max;
-		uint64_t low = 0;
-		uint64_t val = 0; //encoded value to decode
-		for (int i = 0;i < ACValueBits;i++) { //problem with little endian read in, instead shift all bit one by one
-			val <<= 1;
-			val += BitIO::readBit(1) ? 1 : 0;
-		}
+	//decoding
+	uint64_t high = max;
+	uint64_t low = 0;
+	uint64_t val = 0; //encoded value to decode
+	for (int i = 0;i < ACValueBits;i++) { //problem with little endian read in, instead shift all bit one by one
+		val <<= 1;
+		val += BitIO::readBit(1) ? 1 : 0;
+	}
 
-		while (true) {
+	while (true) {//run till all encoded vectors are decoded
 
-			if (rleSize != 0) {
+		if (rleSize != 0) {
 
-				uint64_t range = high - low + 1;
-				uint64_t scaledVal = ((val - low + 1)*wholeSize - 1) / range;
+			uint64_t range = high - low + 1;
+			uint64_t scaledVal = ((val - low + 1)*wholeSize - 1) / range;
 
-				auto it = freq.upper_bound(scaledVal);
-				uint64_t pHigh = it->first;//high bound of interval
-				it--;
-				uint64_t pLow = it->first;//low bound of interval
+			auto it = freq.upper_bound(scaledVal);
+			uint64_t pHigh = it->first;//high bound of interval
+			it--;
+			uint64_t pLow = it->first;//low bound of interval
 
-				curPlane.push_back(int(it->second));//save the key, the decoded signal
+			curPlane.push_back(int(it->second));//save the key, the decoded signal
 
-				high = low + (range*pHigh) / wholeSize - 1;
-				low = low + (range*pLow) / wholeSize;
+			high = low + (range*pHigh) / wholeSize - 1;
+			low = low + (range*pLow) / wholeSize;
 
-				while (true) {
+			while (true) {
 
-					if (high < half) {//bit is 0
-
-					}
-					else if (low >= half) {
-						val -= half;
-						low -= half;
-						high -= half;
-					}
-					else if (low >= oneFourth && high < threeFourth) {
-						val -= oneFourth;
-						low -= oneFourth;
-						high -= oneFourth;
-					}
-					else {
-						break;
-					}
-
-					low <<= 1;
-					high <<= 1;
-					high++;//high: never ending stream of ones
-					val <<= 1;
-					val += BitIO::readBit(1) ? 1 : 0;
+				if (high < half) {//bit is 0
 
 				}
-
-			}
-
-			if (curPlane.size() == rleSize) {//we have all our decoded symbols
-				rleVek.push_back(curPlane);
-
-				if (rleVek.size() == rleVekSize) {
+				else if (low >= half) {
+					val -= half;
+					low -= half;
+					high -= half;
+				}
+				else if (low >= oneFourth && high < threeFourth) {
+					val -= oneFourth;
+					low -= oneFourth;
+					high -= oneFourth;
+				}
+				else {
 					break;
 				}
 
-				rleSize = rleSizes[rleVekCounter++];
-				curPlane.clear();
+				low <<= 1;
+				high <<= 1;
+				high++;//high: never ending stream of ones
+				val <<= 1;
+				val += BitIO::readBit(1) ? 1 : 0;
+
 			}
 
 		}
+
+		if (curPlane.size() == rleSize) {//we have all our decoded symbols
+			rleVek.push_back(curPlane);
+
+			if (rleVek.size() == rleVekSize) {//all vectors are restored
+				break;
+			}
+
+			rleSize = rleSizes[rleVekCounter++];
+			curPlane.clear();
+		}
+
+	}
 
 }
 

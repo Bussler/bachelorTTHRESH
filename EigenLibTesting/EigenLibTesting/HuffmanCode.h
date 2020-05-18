@@ -16,10 +16,10 @@ public:
 
 	struct TreeNode
 	{
-		int data;
-		int freq;
+		int data;//symbol to hold
+		int freq;//num of occurances
 
-		bool code;
+		bool code;//1 or 0 depending if left or right node
 		bool isLeaf = false;
 
 		TreeNode * nextNode;
@@ -44,10 +44,10 @@ public:
 	void encodeData(std::vector<std::vector<int>>& rleVek);
 	void decodeData(std::vector<std::vector<int>>& rleVek);
 
-	TreeNode* createNode(int data, int freq);
-	TreeNode* createNode(int freq, TreeNode* left, TreeNode* right);
+	TreeNode* createNodeLeaf(int data, int freq);
+	TreeNode* createInnerNode(int freq, TreeNode* left, TreeNode* right);
 
-	void createHuffmanTree(std::priority_queue<TreeNode*, std::vector<TreeNode*>, myComparator >& q, std::map<uint64_t, uint64_t>& freq, std::map<uint64_t, TreeNode*>& elements);
+	void createHuffmanTree(std::priority_queue<TreeNode*, std::vector<TreeNode*>, myComparator >& q, std::map<int, int>& freq, std::map<int, TreeNode*>& elements);
 
 };
 

@@ -246,6 +246,7 @@ Eigen::MatrixXd TensorOperations::getSlice(Eigen::Tensor<myTensorType, 3>& T, in
 	return slice;
 }
 
+//Calculates scale-Factors (Core Slice Norms) for Factor-Matrices TODO not currently used, since norm() is easier 
 void TensorOperations::calcCoreSliceNorms(Eigen::Tensor<myTensorType, 3> B)
 {
 	for (int i = 1;i <= 3;i++) {

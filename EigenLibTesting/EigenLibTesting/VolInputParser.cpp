@@ -171,17 +171,12 @@ void VolInputParser::readInputVol(char * txtname)
 	unsigned short *pData = new unsigned short[uCount];
 	fread((void*)pData,uCount, sizeof(unsigned short), fp);
 	
-	/*for (int i = 488352; i < 488352 +16; i++) { //488352
-		std::cout << "Parse1: " << int(pData[i]) << std::endl;
-	}*/
-	
 	//read in the array into Tensor slice by slice TODO: instantly read in the file? Maybe use iffile for read
 	int hCount = 0;
 	
 	for (int z = 0; z<int(*sizeZ); z++) {
 		for (int y= 0; y<int(*sizeY); y++) {
 			for (int x = 0; x<int(*sizeX); x++) {
-				//if (hCount == 488352 + 11) std::cout << int(pData[hCount]) << " at X: " << x << " Y: " << y << " Z: " << z << std::endl;
 				TensorData(x, y, z) = int(pData[hCount++]); //TODO use Map function for this
 			}
 		}
@@ -242,7 +237,7 @@ uint64_t VolInputParser::readBit2(int to_read) {
 }*/
 
 
-//write the dimensions as short(), scale as double 
+//write the dimensions
 void VolInputParser::writeCharacteristicData(int dim1, int dim2, int dim3, int U1R, int U1C, int U2R, int U2C, int U3R, int U3C)
 {
 	char txt[] = "erg.txt";
@@ -263,6 +258,7 @@ void VolInputParser::writeCharacteristicData(int dim1, int dim2, int dim3, int U
 
 }
 
+//read and safe dimensionalities of tensor for later calculations
 void VolInputParser::readCharacteristicData()
 {
 	char txt[] = "erg.txt";
@@ -279,6 +275,7 @@ void VolInputParser::readCharacteristicData()
 	tData.U3C = BitIO::readBit(32);
 }
 
+//read and decode the encoded core and factor-matrices
 void VolInputParser::readRleData(std::vector<std::vector<int>>& rle, std::vector<std::vector<bool>>& raw, double & scale, std::vector<bool>& signs)
 {
 	//first the scale
@@ -299,6 +296,8 @@ void VolInputParser::readRleData(std::vector<std::vector<int>>& rle, std::vector
 
 	//third rle
 	TTHRESHEncoding::decodeACVektor(rle);
+	//HuffmanCode coder;
+	//coder.decodeData(rle);
 
 	//fourth signs
 	int signsSize = BitIO::readBit(64);
