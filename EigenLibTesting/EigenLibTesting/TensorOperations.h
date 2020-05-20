@@ -27,6 +27,7 @@ namespace TensorOperations
 	Eigen::MatrixXd createMatrixFromArray(double* data, int d1, int d2);
 
 	Eigen::MatrixXd getSlice(Eigen::Tensor<myTensorType, 3>& T, int dim, int i);
+	double * reorderCore(Eigen::Tensor<myTensorType, 3>& B);
 
 	void calcCoreSliceNorms(Eigen::Tensor<myTensorType, 3> B);
 }

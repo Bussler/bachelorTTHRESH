@@ -246,6 +246,44 @@ Eigen::MatrixXd TensorOperations::getSlice(Eigen::Tensor<myTensorType, 3>& T, in
 	return slice;
 }
 
+//Function to reorder the core coefficients, so that the hot corner elemnts come first
+double * TensorOperations::reorderCore(Eigen::Tensor<myTensorType, 3>& B)
+{
+	int dim1 = B.dimension(0);
+	int dim2 = B.dimension(1);
+	int dim3 = B.dimension(2);
+
+	double * orderedData = (double*)malloc(sizeof(double)*(dim1*dim2*dim3));
+
+	for (int mhD = 0;mhD < dim1 + dim2 + dim3 -2;mhD++) {//maanhattan distance: order elements with smallest manhatten distance to hot corner (0,0,0) first
+
+		std::cout << "Manhattan Distance: " << mhD << std::endl;
+		
+		int y = 0;
+		int x = 0;
+		int z = 0;
+
+		do
+		{
+			x = 0;
+			do
+			{
+				if (mhD - y - x < dim3) {
+					z = mhD - y - x;
+					std::cout << "(" << y << " , " << x << " , " << z << ")" << std::endl;
+				}
+
+				x++;
+			} while (x <= mhD - y && x < dim2);
+			 
+			y++;
+		} while (y <= mhD && y < dim1);
+
+	}
+
+	return nullptr;
+}
+
 //Calculates scale-Factors (Core Slice Norms) for Factor-Matrices TODO not currently used, since norm() is easier 
 void TensorOperations::calcCoreSliceNorms(Eigen::Tensor<myTensorType, 3> B)
 {

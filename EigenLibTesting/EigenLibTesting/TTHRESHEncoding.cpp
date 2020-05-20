@@ -281,7 +281,7 @@ void TTHRESHEncoding::compress(Eigen::Tensor<myTensorType, 3>& b, std::vector<Ei
 	std::vector<uint64_t> CoreMask = encodeRLE(coefficients, numC, convertedError, true, rle, raw,scale, signs); // encode the core
 
 	//encode the factor matrices: calculate core-slice norms TODO rballester special case 0
-	Eigen::Tensor<myTensorType, 3> maskTensor = b;// TensorOperations::createTensorFromArray((myTensorType*)CoreMask.data(), b.dimension(0), b.dimension(1), b.dimension(2));
+	Eigen::Tensor<myTensorType, 3> maskTensor = b; //TensorOperations::createTensorFromArray((myTensorType*)CoreMask.data(), b.dimension(0), b.dimension(1), b.dimension(2));//b
 	std::vector<std::vector<double>> usNorms;
 
 	for (int i = 0; i < us.size();i++) {//multiply each U col with core-slice norm TODO umschreiben
