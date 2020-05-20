@@ -254,10 +254,9 @@ double * TensorOperations::reorderCore(Eigen::Tensor<myTensorType, 3>& B)
 	int dim3 = B.dimension(2);
 
 	double * orderedData = (double*)malloc(sizeof(double)*(dim1*dim2*dim3));
+	int counter = 0;
 
 	for (int mhD = 0;mhD < dim1 + dim2 + dim3 -2;mhD++) {//maanhattan distance: order elements with smallest manhatten distance to hot corner (0,0,0) first
-
-		std::cout << "Manhattan Distance: " << mhD << std::endl;
 		
 		int y = 0;
 		int x = 0;
@@ -270,7 +269,7 @@ double * TensorOperations::reorderCore(Eigen::Tensor<myTensorType, 3>& B)
 			{
 				if (mhD - y - x < dim3) {
 					z = mhD - y - x;
-					std::cout << "(" << y << " , " << x << " , " << z << ")" << std::endl;
+					orderedData[counter++] = B(y,x,z);
 				}
 
 				x++;
@@ -281,7 +280,39 @@ double * TensorOperations::reorderCore(Eigen::Tensor<myTensorType, 3>& B)
 
 	}
 
-	return nullptr;
+	return orderedData;
+}
+
+Eigen::Tensor<myTensorType, 3> TensorOperations::deorderCore(double * data, int d1, int d2, int d3)
+{
+	Eigen::Tensor<myTensorType, 3> B(d1, d2, d3);
+	int counter = 0;
+
+	for (int mhD = 0;mhD < d1 + d2 + d3 - 2;mhD++) {//maanhattan distance: order elements with smallest manhatten distance to hot corner (0,0,0) first
+
+		int y = 0;
+		int x = 0;
+		int z = 0;
+
+		do
+		{
+			x = 0;
+			do
+			{
+				if (mhD - y - x < d3) {
+					z = mhD - y - x;
+					B(y, x, z) = data[counter++];
+				}
+
+				x++;
+			} while (x <= mhD - y && x < d2);
+
+			y++;
+		} while (y <= mhD && y < d1);
+
+	}
+
+	return B;
 }
 
 //Calculates scale-Factors (Core Slice Norms) for Factor-Matrices TODO not currently used, since norm() is easier 
