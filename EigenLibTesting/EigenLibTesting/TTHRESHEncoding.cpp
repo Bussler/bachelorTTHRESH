@@ -83,7 +83,6 @@ std::vector<uint64_t> TTHRESHEncoding::encodeRLE(double * c, int numC, double er
 				if (curBit==1) {
 					cRLE.push_back(run);
 					run = 0;
-					//mask[co] = 1<<p;//mark in the mask where the leftmost leading bit was
 				}
 				else
 				{
@@ -253,7 +252,7 @@ double * TTHRESHEncoding::decodeRLE(std::vector<std::vector<int>>& rle, std::vec
 //convert sse according to specified errorType and starts the rle/verbatim encoding process
 void TTHRESHEncoding::compress(Eigen::Tensor<myTensorType, 3>& b, std::vector<Eigen::MatrixXd>& us, double errorTarget, ErrorType etype, std::vector<std::vector<int>>& rle, std::vector<std::vector<bool>>& raw, double& scale, std::vector<bool>& signs)
 {
-	double* coefficients = b.data();
+	double* coefficients = b.data(); //TensorOperations::reorderCore(b);
 	int numC = b.dimension(0)*b.dimension(1)*b.dimension(2);
 	//convert sse according to target error
 
@@ -329,15 +328,6 @@ void TTHRESHEncoding::compress(Eigen::Tensor<myTensorType, 3>& b, std::vector<Ei
 
 		encodeRLE(us[i].data(), us[i].cols()*us[i].rows(), convertedError,false, usRle[i], usRaw[i], usScales[i], usSigns[i] );
 	}
-
-	/*//Test for decoding
-	int kek = 0;
-	double * decU = decodeRLE(usRle[kek], usRaw[kek], us[kek].cols()*us[kek].rows(), usScales[kek], usSigns[kek]);
-	Eigen::MatrixXd decMU = TensorOperations::createMatrixFromArray(decU, us[kek].rows(), us[kek].cols());
-	for (int j = 0;j < us[kek].cols();j++) {
-		decMU.col(j) /= usNorms[kek][j];
-	}
-	std::cout << "Decoded Factor"<<kek<< ": " << std::endl << decMU << std::endl;*/
 
 }
 
@@ -567,6 +557,15 @@ void TTHRESHEncoding::encodeACVektor(std::vector<std::vector<int>>& rleVek)
 		}
 
 	}
+
+	/*//DEBUGGING
+	std::ofstream myfile;
+	myfile.open("Testausgabe.csv");
+	for (auto it = freq.begin(); it != freq.end(); it++) {//calculate the probabilities and size of interval
+		//std::cout << "Key: " << it->first << " Freq: " << (it->second).first << std::endl;
+		myfile << it->first << " ," << (it->second).first << "\n";
+	}
+	myfile.close();*/
 
 	uint64_t count = 0;
 	for (auto it = freq.begin(); it != freq.end(); it++) {//calculate the probabilities and size of interval
