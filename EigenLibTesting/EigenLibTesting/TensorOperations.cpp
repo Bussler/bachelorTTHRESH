@@ -256,8 +256,8 @@ double * TensorOperations::reorderCore(Eigen::Tensor<myTensorType, 3>& B)
 	double * orderedData = (double*)malloc(sizeof(double)*(dim1*dim2*dim3));
 	int counter = 0;
 
-	for (int mhD = 0;mhD < dim1 + dim2 + dim3 -2;mhD++) {//maanhattan distance: order elements with smallest manhatten distance to hot corner (0,0,0) first
-		
+	for (int mhD = 0;mhD < dim1 + dim2 + dim3 -2;mhD++) {//manhattan distance: order elements with smallest manhatten distance to hot corner (0,0,0) first
+		//std::cout << "Distance: " << mhD << std::endl;
 		int y = 0;
 		int x = 0;
 		int z = 0;
@@ -270,6 +270,7 @@ double * TensorOperations::reorderCore(Eigen::Tensor<myTensorType, 3>& B)
 				if (mhD - y - x < dim3) {
 					z = mhD - y - x;
 					orderedData[counter++] = B(y,x,z);
+					//std::cout << "(" << y << " , " << x << " , " << z << ")" << std::endl;
 				}
 
 				x++;
@@ -277,6 +278,43 @@ double * TensorOperations::reorderCore(Eigen::Tensor<myTensorType, 3>& B)
 			 
 			y++;
 		} while (y <= mhD && y < dim1);
+
+	}
+
+	return orderedData;
+}
+
+double * TensorOperations::reorderCore2(Eigen::Tensor<myTensorType, 3>& B)
+{
+	int dim1 = B.dimension(0);
+	int dim2 = B.dimension(1);
+	int dim3 = B.dimension(2);
+
+	double * orderedData = (double*)malloc(sizeof(double)*(dim1*dim2*dim3));
+	int counter = 0;
+
+	for (int mhD = 0;mhD < dim1 + dim2 + dim3 - 2;mhD++) {//manhattan distance: order elements with smallest manhatten distance to hot corner (0,0,0) first
+		//std::cout << "Distance: " << mhD << std::endl;
+		int first = 0;
+		int second = 0;
+		int third = 0;
+
+		do
+		{
+			second = 0;
+			do
+			{
+				if (mhD - first - second < dim1) {
+					third = mhD - first - second;
+					orderedData[counter++] = B(third, second, first); //B(second, third, first);
+					//std::cout << "(" << y << " , " << x << " , " << z << ")" << std::endl;
+				}
+
+				second++;
+			} while (second <= mhD - first && second < dim2);
+
+			first++;
+		} while (first <= mhD && first < dim3);
 
 	}
 

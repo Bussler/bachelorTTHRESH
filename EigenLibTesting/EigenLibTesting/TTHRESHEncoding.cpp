@@ -33,6 +33,9 @@ double TTHRESHEncoding::calcEntropie(std::vector<int> rlePart)
 //encode the coefficients with the help of rle/verbatim until error is below given threshold. Results are written and safed in rle and raw vectors(debugging): Adapted from rballester Github (Alpha, SSE calc)
 std::vector<uint64_t> TTHRESHEncoding::encodeRLE(double * c, int numC, double errorTarget, bool isCore, std::vector<std::vector<int>>& rle, std::vector<std::vector<bool>>& raw, double& scale, std::vector<bool>& signs)
 {
+	//std::ofstream myfile;
+	//myfile.open("Planeausgabe.csv");
+
 	double max = 0;
 	for (int i = 0;i < numC;i++) {
 		if (abs(c[i])>max) {
@@ -115,6 +118,16 @@ std::vector<uint64_t> TTHRESHEncoding::encodeRLE(double * c, int numC, double er
 
 		cRLE.push_back(run); //safe last run
 
+		/*if (isCore) {
+			
+			myfile << "Plane " << p << "\n";
+			for (int i = 0;i < cRLE.size();i++) {
+				myfile << cRLE[i] << " ,";
+			}
+
+			myfile << "\n";
+		}*/
+	
 		rle.push_back(cRLE);
 		raw.push_back(cRaw);
 
@@ -180,6 +193,7 @@ std::vector<uint64_t> TTHRESHEncoding::encodeRLE(double * c, int numC, double er
 		totalBitsCore = totalBits;
 	}
 
+	//myfile.close();
 	return mask;
 }
 
@@ -250,9 +264,9 @@ double * TTHRESHEncoding::decodeRLE(std::vector<std::vector<int>>& rle, std::vec
 }
 
 //convert sse according to specified errorType and starts the rle/verbatim encoding process
-void TTHRESHEncoding::compress(Eigen::Tensor<myTensorType, 3>& b, std::vector<Eigen::MatrixXd>& us, double errorTarget, ErrorType etype, std::vector<std::vector<int>>& rle, std::vector<std::vector<bool>>& raw, double& scale, std::vector<bool>& signs)
+void TTHRESHEncoding::compress(Eigen::Tensor<myTensorType, 3>& b, std::vector<Eigen::MatrixXd>& us, double errorTarget, ErrorType etype, std::vector<std::vector<int>>& rle, std::vector<std::vector<bool>>& raw, double& scale, std::vector<bool>& signs, double* optimal)
 {
-	double* coefficients = b.data(); //TensorOperations::reorderCore(b);
+	double* coefficients = optimal;// b.data(); //TensorOperations::reorderCore(b);
 	int numC = b.dimension(0)*b.dimension(1)*b.dimension(2);
 	//convert sse according to target error
 
@@ -560,9 +574,8 @@ void TTHRESHEncoding::encodeACVektor(std::vector<std::vector<int>>& rleVek)
 
 	/*//DEBUGGING
 	std::ofstream myfile;
-	myfile.open("Testausgabe.csv");
+	myfile.open("TestausgabeFreq.csv");
 	for (auto it = freq.begin(); it != freq.end(); it++) {//calculate the probabilities and size of interval
-		//std::cout << "Key: " << it->first << " Freq: " << (it->second).first << std::endl;
 		myfile << it->first << " ," << (it->second).first << "\n";
 	}
 	myfile.close();*/

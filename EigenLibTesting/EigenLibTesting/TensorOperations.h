@@ -28,6 +28,7 @@ namespace TensorOperations
 
 	Eigen::MatrixXd getSlice(Eigen::Tensor<myTensorType, 3>& T, int dim, int i);
 	double * reorderCore(Eigen::Tensor<myTensorType, 3>& B);
+	double * reorderCore2(Eigen::Tensor<myTensorType, 3>& B);
 	Eigen::Tensor<myTensorType, 3> deorderCore(double * data, int d1, int d2, int d3);
 
 	void calcCoreSliceNorms(Eigen::Tensor<myTensorType, 3> B);
