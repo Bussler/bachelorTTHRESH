@@ -266,7 +266,7 @@ double * TTHRESHEncoding::decodeRLE(std::vector<std::vector<int>>& rle, std::vec
 //convert sse according to specified errorType and starts the rle/verbatim encoding process
 void TTHRESHEncoding::compress(Eigen::Tensor<myTensorType, 3>& b, std::vector<Eigen::MatrixXd>& us, double errorTarget, ErrorType etype, std::vector<std::vector<int>>& rle, std::vector<std::vector<bool>>& raw, double& scale, std::vector<bool>& signs, double* optimal)
 {
-	double* coefficients = optimal;// b.data(); //TensorOperations::reorderCore(b);
+	double* coefficients = TensorOperations::reorderCoreWeighted(b, 2, 1);// b.data(); //TensorOperations::reorderCore(b);
 	int numC = b.dimension(0)*b.dimension(1)*b.dimension(2);
 	//convert sse according to target error
 
@@ -572,13 +572,13 @@ void TTHRESHEncoding::encodeACVektor(std::vector<std::vector<int>>& rleVek)
 
 	}
 
-	/*//DEBUGGING
+	//DEBUGGING
 	std::ofstream myfile;
 	myfile.open("TestausgabeFreq.csv");
 	for (auto it = freq.begin(); it != freq.end(); it++) {//calculate the probabilities and size of interval
 		myfile << it->first << " ," << (it->second).first << "\n";
 	}
-	myfile.close();*/
+	myfile.close();
 
 	uint64_t count = 0;
 	for (auto it = freq.begin(); it != freq.end(); it++) {//calculate the probabilities and size of interval
