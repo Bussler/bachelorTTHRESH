@@ -33,8 +33,8 @@ double TTHRESHEncoding::calcEntropie(std::vector<int> rlePart)
 //encode the coefficients with the help of rle/verbatim until error is below given threshold. Results are written and safed in rle and raw vectors(debugging): Adapted from rballester Github (Alpha, SSE calc)
 std::vector<uint64_t> TTHRESHEncoding::encodeRLE(double * c, int numC, double errorTarget, bool isCore, std::vector<std::vector<int>>& rle, std::vector<std::vector<bool>>& raw, double& scale, std::vector<bool>& signs)
 {
-	//std::ofstream myfile;
-	//myfile.open("Planeausgabe.csv");
+	std::ofstream myfile;
+	myfile.open("Planeausgabe.csv");
 
 	double max = 0;
 	for (int i = 0;i < numC;i++) {
@@ -118,15 +118,23 @@ std::vector<uint64_t> TTHRESHEncoding::encodeRLE(double * c, int numC, double er
 
 		cRLE.push_back(run); //safe last run
 
-		/*if (isCore) {
+		if (isCore) {
+
+			std::map<uint64_t, int> freq;// key -> (count of key, lower bound Interval)
+			for (int i = 0; i < cRLE.size(); i++) {
+				freq[cRLE[i]] += 1; //count the occurences of the key
+			}
 			
 			myfile << "Plane " << p << "\n";
-			for (int i = 0;i < cRLE.size();i++) {
+			/*for (int i = 0;i < cRLE.size();i++) {
 				myfile << cRLE[i] << " ,";
+			}*/
+			for (auto it = freq.begin(); it != freq.end(); it++) {//calculate the probabilities and size of interval
+				myfile << it->first << " ," << (it->second) << "\n";
 			}
 
 			myfile << "\n";
-		}*/
+		}
 	
 		rle.push_back(cRLE);
 		raw.push_back(cRaw);
@@ -193,7 +201,7 @@ std::vector<uint64_t> TTHRESHEncoding::encodeRLE(double * c, int numC, double er
 		totalBitsCore = totalBits;
 	}
 
-	//myfile.close();
+	myfile.close();
 	return mask;
 }
 
@@ -266,7 +274,8 @@ double * TTHRESHEncoding::decodeRLE(std::vector<std::vector<int>>& rle, std::vec
 //convert sse according to specified errorType and starts the rle/verbatim encoding process
 void TTHRESHEncoding::compress(Eigen::Tensor<myTensorType, 3>& b, std::vector<Eigen::MatrixXd>& us, double errorTarget, ErrorType etype, std::vector<std::vector<int>>& rle, std::vector<std::vector<bool>>& raw, double& scale, std::vector<bool>& signs, double* optimal)
 {
-	double* coefficients = TensorOperations::reorderCoreWeighted(b, 2, 1);// b.data(); //TensorOperations::reorderCore(b);
+
+	double* coefficients = TensorOperations::reorderCoreBtf(b);// TensorOperations::reorderCoreWeighted(b, 2, 4);// TensorOperations::reorderCore(b);// TensorOperations::reorderCoreWeighted(b, 2, 4);// b.data();
 	int numC = b.dimension(0)*b.dimension(1)*b.dimension(2);
 	//convert sse according to target error
 

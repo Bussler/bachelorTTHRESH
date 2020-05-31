@@ -284,7 +284,32 @@ double * TensorOperations::reorderCore(Eigen::Tensor<myTensorType, 3>& B)
 	return orderedData;
 }
 
-double * TensorOperations::reorderCore2(Eigen::Tensor<myTensorType, 3>& B)
+double * TensorOperations::reorderCoreMajor(Eigen::Tensor<myTensorType, 3>& B)
+{
+	//Row major reordering
+	Eigen::Tensor<myTensorType, 3> row_major(B.dimension(1), B.dimension(0), B.dimension(2));
+	for (int i = 0;i < row_major.dimension(2);i++) {
+		for (int j = 0;j < row_major.dimension(1);j++) {
+			for (int k = 0;k < row_major.dimension(0);k++) {
+				row_major(k, j, i) = B(j, k, i);
+			}
+		}
+	}
+
+	//z major reordering
+	Eigen::Tensor<myTensorType, 3> z_major(B.dimension(2), B.dimension(0), B.dimension(1));
+	for (int i = 0;i < z_major.dimension(2);i++) {
+		for (int j = 0;j < z_major.dimension(1);j++) {
+			for (int k = 0;k < z_major.dimension(0);k++) {
+				z_major(k, j, i) = B(j, i, k);
+			}
+		}
+	}
+
+	return row_major.data();
+}
+
+double * TensorOperations::reorderCoreBtf(Eigen::Tensor<myTensorType, 3>& B)
 {
 	int dim1 = B.dimension(0);
 	int dim2 = B.dimension(1);
@@ -293,28 +318,28 @@ double * TensorOperations::reorderCore2(Eigen::Tensor<myTensorType, 3>& B)
 	double * orderedData = (double*)malloc(sizeof(double)*(dim1*dim2*dim3));
 	int counter = 0;
 
-	for (int mhD = 0;mhD < dim1 + dim2 + dim3 - 2;mhD++) {//manhattan distance: order elements with smallest manhatten distance to hot corner (0,0,0) first
-		std::cout << "Distance: " << mhD << std::endl;
-		int first = 0;
-		int second = 0;
-		int third = 0;
+	for (int mhD = dim1 + dim2 + dim3 - 2; mhD >= 0; mhD--) {//manhattan distance: order elements with largest manhatten distance to hot corner (0,0,0) first
+		//std::cout << "Distance: " << mhD << std::endl;
+		int y = dim1-1;
+		int x = dim2-1;
+		int z = dim3-1;
 
 		do
 		{
-			second = 0;
+			x = dim2-1;
 			do
 			{
-				if (mhD - first - second < dim1) {
-					third = mhD - first - second;
-					orderedData[counter++] = B(third, second, first); //B(second, third, first);
-					std::cout << "(" << third << " , " << second << " , " << first << ")" << std::endl;
+				if (mhD - y - x < dim3 && mhD-y-x >= 0) {
+					z = mhD - y - x;
+					orderedData[counter++] = B(y, x, z);
+					//std::cout << "(" << y << " , " << x << " , " << z << ")" << std::endl;
 				}
 
-				second++;
-			} while (second <= mhD - first && second < dim2);
+				x--;
+			} while (x >= 0);
 
-			first++;
-		} while (first <= mhD && first < dim3);
+			y--;
+		} while (y >= 0);
 
 	}
 
@@ -331,9 +356,15 @@ double * TensorOperations::reorderCoreWeighted(Eigen::Tensor<myTensorType, 3>& B
 	int counter = 0;
 	int mhD = 0;
 
+
+	int weightY = 1;
+	int weightX = 2;
+	int weightZ = 3;
+
+
 	switch (dim)
 	{
-	case 1: //TODO faulty
+	case 1:
 
 		while (counter < dim1*dim2*dim3) {
 			//std::cout << "Distance: " << mhD << std::endl;
@@ -347,13 +378,13 @@ double * TensorOperations::reorderCoreWeighted(Eigen::Tensor<myTensorType, 3>& B
 				do
 				{
 					y = (mhD - z - x)/weight;
-					if (y < dim2 && y >= 0 && (y*weight)+x+z==mhD) {
-						orderedData[counter++] = B(x, y, z); //B(second, third, first);
+					if (y < dim1 && y >= 0 && (y*weight)+x+z==mhD) {
+						orderedData[counter++] = B(y, x, z); //B(second, third, first);
 						//std::cout << "(" << y << " , " << x << " , " << z << ")" << std::endl;
 					}
 
 					x++;
-				} while (x <= mhD - z && x < dim1);
+				} while (x <= mhD - z && x < dim2);
 
 				z++;
 			} while (z <= mhD && z < dim3);
@@ -376,17 +407,17 @@ double * TensorOperations::reorderCoreWeighted(Eigen::Tensor<myTensorType, 3>& B
 				x = 0;
 				do
 				{
-					if (mhD - z - (x*weight) < dim2 && mhD - z - (x*weight)>=0) {
+					if (mhD - z - (x*weight) < dim1 && mhD - z - (x*weight)>=0) {
 						y = mhD - z - (x*weight);
-						orderedData[counter++] = B(z, y, x); //B(second, third, first); z, x, y
+						orderedData[counter++] = B(y, x, z); //B(second, third, first); z, x, y
 						//std::cout << "(" << y << " , " << x << " , " << z << ")" << std::endl;
 					}
 
 					x++;
-				} while (x <= mhD - z && x < dim3);
+				} while (x <= mhD - z && x < dim2);
 
 				z++;
-			} while (z <= mhD && z < dim1);
+			} while (z <= mhD && z < dim3);
 
 			mhD++;
 		}
@@ -406,20 +437,57 @@ double * TensorOperations::reorderCoreWeighted(Eigen::Tensor<myTensorType, 3>& B
 				x = 0;
 				do
 				{
-					if (mhD - (z*weight) - x < dim2 && mhD - (z*weight) - x >= 0) {
+					if (mhD - (z*weight) - x < dim1 && mhD - (z*weight) - x >= 0) {
 						y = mhD - (z*weight) - x;
-						orderedData[counter++] = B(z, y, x); //B(second, third, first);
+						orderedData[counter++] = B(y, x, z); //B(second, third, first);
 						//std::cout << "(" << y << " , " << x << " , " << z << ")" << std::endl;
 					}
 
 					x++;
-				} while (x <= mhD - z && x < dim3);
+				} while (x <= mhD - z && x < dim2);
+
+				z++;
+			} while (z <= mhD && z < dim3);
+
+			mhD++;
+		}
+
+		break;
+
+	case 4://Special Case: Weight multiple dim
+
+		weightX = 164;
+		weightY = 2;
+		weightZ = 164;
+
+
+		while (counter < dim1*dim2*dim3) {
+			//std::cout << "Distance: " << mhD << std::endl;
+			int z = 0;
+			int x = 0;
+			int y = 0;
+
+			do
+			{
+				x = 0;
+				do
+				{
+
+					y = (mhD - (z*weightZ) - (x*weightX)) / weightY;
+					if (y < dim3 && y >= 0 && (y*weightY) + (x*weightX) + (z*weightZ) == mhD) {
+						orderedData[counter++] = B(z, x, y); //B(second, third, first); (y, x, z)
+						//std::cout << "(" << y << " , " << x << " , " << z << ")" << std::endl;
+					}
+
+					x++;
+				} while (x <= mhD - z && x < dim2);
 
 				z++;
 			} while (z <= mhD && z < dim1);
 
 			mhD++;
 		}
+
 
 		break;
 
