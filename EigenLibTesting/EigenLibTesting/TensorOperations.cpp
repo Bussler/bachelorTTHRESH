@@ -284,24 +284,24 @@ double * TensorOperations::reorderCore(Eigen::Tensor<myTensorType, 3>& B)
 	return orderedData;
 }
 
-double * TensorOperations::reorderCoreMajor(Eigen::Tensor<myTensorType, 3>& B)
+double * TensorOperations::reorderCoreMajor(Eigen::Tensor<myTensorType, 3>& b)
 {
 	//Row major reordering
-	Eigen::Tensor<myTensorType, 3> row_major(B.dimension(1), B.dimension(0), B.dimension(2));
+	Eigen::Tensor<myTensorType, 3> row_major(b.dimension(1), b.dimension(0), b.dimension(2));
 	for (int i = 0;i < row_major.dimension(2);i++) {
 		for (int j = 0;j < row_major.dimension(1);j++) {
 			for (int k = 0;k < row_major.dimension(0);k++) {
-				row_major(k, j, i) = B(j, k, i);
+				row_major(k, j, i) = b(j, k, i);
 			}
 		}
 	}
 
 	//z major reordering
-	Eigen::Tensor<myTensorType, 3> z_major(B.dimension(2), B.dimension(0), B.dimension(1));
+	Eigen::Tensor<myTensorType, 3> z_major(b.dimension(2), b.dimension(0), b.dimension(1));
 	for (int i = 0;i < z_major.dimension(2);i++) {
 		for (int j = 0;j < z_major.dimension(1);j++) {
 			for (int k = 0;k < z_major.dimension(0);k++) {
-				z_major(k, j, i) = B(j, i, k);
+				z_major(k, j, i) = b(j, i, k);
 			}
 		}
 	}

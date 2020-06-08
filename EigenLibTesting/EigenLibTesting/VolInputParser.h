@@ -57,6 +57,7 @@ public:
 	Eigen::Tensor<myTensorType, 3> DummyTensor;//dummy tensor for testing
 	
 	void readInputVol(char * txtname);
+	void readRawInputVol(char * txtname);
 
 	void writeCharacteristicData(int dim1, int dim2, int dim3, int U1R, int U1C, int U2R, int U2C, int U3R, int U3C);
 	void readCharacteristicData();

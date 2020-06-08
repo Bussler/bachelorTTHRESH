@@ -136,6 +136,7 @@ VolInputParser::VolInputParser()
 VolInputParser::VolInputParser(char * txtname)
 {
 	readInputVol(txtname);//read in the data
+	//readRawInputVol(txtname);
 }
 
 
@@ -177,6 +178,45 @@ void VolInputParser::readInputVol(char * txtname)
 	for (int z = 0; z<int(*sizeZ); z++) {
 		for (int y= 0; y<int(*sizeY); y++) {
 			for (int x = 0; x<int(*sizeX); x++) {
+				TensorData(x, y, z) = int(pData[hCount++]); //TODO use Map function for this
+			}
+		}
+	}
+
+	fclose(fp);
+	delete pData;
+}
+
+void VolInputParser::readRawInputVol(char * txtname)
+{
+	std::cout << "Starting Parse Raw" << std::endl;
+
+	FILE *fp = fopen(txtname, "rb"); // open in binary
+	if (fp == NULL) {
+		std::cout << "Error opening file";
+		exit(1);
+	}
+
+	unsigned short sizeX = 256;
+
+	unsigned short sizeY = 256;
+
+	unsigned short sizeZ = 256;
+
+	std::cout << std::endl << "Reference Data: x, y, z: " << int(sizeX) << " " << int(sizeY) << " " << int(sizeZ) << std::endl;
+
+	TensorData = Eigen::Tensor<myTensorType, 3>(int(sizeX), int(sizeY), int(sizeZ)); //creating tensor of the read in dimensions
+
+	int uCount = int(sizeX)*int(sizeY)*int(sizeZ);
+	unsigned char *pData = new unsigned char[uCount];
+	fread((void*)pData, uCount, sizeof(unsigned char), fp);
+
+	//read in the array into Tensor slice by slice TODO: instantly read in the file? Maybe use iffile for read
+	int hCount = 0;
+
+	for (int z = 0; z<int(sizeZ); z++) {
+		for (int y = 0; y<int(sizeY); y++) {
+			for (int x = 0; x<int(sizeX); x++) {
 				TensorData(x, y, z) = int(pData[hCount++]); //TODO use Map function for this
 			}
 		}
