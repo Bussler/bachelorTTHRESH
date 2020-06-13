@@ -70,6 +70,8 @@ std::vector<uint64_t> TTHRESHEncoding::encodeRLE(double * c, int numC, double er
 	
 	for (int p = 63;p >= 0; p--) {//running through bit-planes
 
+		myfile << "Plane: " << p << "\n";//TODO delete later
+
 		std::vector<bool> cRaw;
 		std::vector<int> cRLE;
 		int run = 0;
@@ -84,6 +86,7 @@ std::vector<uint64_t> TTHRESHEncoding::encodeRLE(double * c, int numC, double er
 			if (mask[co]==0) {//not active, encode rle
 
 				if (curBit==1) {
+					myfile << co << "," << int(n[co]/scaleK) << "\n";
 					cRLE.push_back(run);
 					run = 0;
 				}
@@ -118,7 +121,7 @@ std::vector<uint64_t> TTHRESHEncoding::encodeRLE(double * c, int numC, double er
 
 		cRLE.push_back(run); //safe last run
 
-		if (isCore) {//DEBUGGING creating Table
+		/*if (isCore) {//DEBUGGING creating Table
 
 			std::map<uint64_t, int> freq;// key -> (count of key, lower bound Interval)
 			for (int i = 0; i < cRLE.size(); i++) {
@@ -131,7 +134,7 @@ std::vector<uint64_t> TTHRESHEncoding::encodeRLE(double * c, int numC, double er
 			}
 
 			myfile << "\n";
-		}
+		}*/
 	
 		rle.push_back(cRLE);
 		raw.push_back(cRaw);
@@ -271,6 +274,7 @@ double * TTHRESHEncoding::decodeRLE(std::vector<std::vector<int>>& rle, std::vec
 //convert sse according to specified errorType and starts the rle/verbatim encoding process
 void TTHRESHEncoding::compress(Eigen::Tensor<myTensorType, 3>& b, std::vector<Eigen::MatrixXd>& us, double errorTarget, ErrorType etype, std::vector<std::vector<int>>& rle, std::vector<std::vector<bool>>& raw, double& scale, std::vector<bool>& signs, double* optimal)
 {
+
 	double* coefficients = b.data();// TensorOperations::reorderCoreWeighted(b, 2, 4);// TensorOperations::reorderCore(b);// TensorOperations::reorderCoreWeighted(b, 2, 4);// b.data();
 	int numC = b.dimension(0)*b.dimension(1)*b.dimension(2);
 	//convert sse according to target error

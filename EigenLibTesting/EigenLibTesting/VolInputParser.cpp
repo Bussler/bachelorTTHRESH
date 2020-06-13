@@ -197,11 +197,11 @@ void VolInputParser::readRawInputVol(char * txtname)
 		exit(1);
 	}
 
-	unsigned short sizeX = 256;
+	unsigned short sizeX = 512;//256;
 
-	unsigned short sizeY = 256;
+	unsigned short sizeY = 512;//256;
 
-	unsigned short sizeZ = 256;
+	unsigned short sizeZ = 361;//256;
 
 	std::cout << std::endl << "Reference Data: x, y, z: " << int(sizeX) << " " << int(sizeY) << " " << int(sizeZ) << std::endl;
 

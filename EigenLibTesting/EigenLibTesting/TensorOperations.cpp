@@ -531,8 +531,8 @@ Eigen::Tensor<myTensorType, 3> TensorOperations::deorderCore(double * data, int 
 	return B;
 }
 
-//Calculates scale-Factors (Core Slice Norms) for Factor-Matrices TODO not currently used, since norm() is easier 
-void TensorOperations::calcCoreSliceNorms(Eigen::Tensor<myTensorType, 3> B)
+//Calculates scale-Factors (Core Slice Norms) for Factor-Matrices by computing the eigenvalues. Do not use, high comp. cost
+void TensorOperations::calcCoreSliceNormsFromEigenvalue(Eigen::Tensor<myTensorType, 3> B)
 {
 	for (int i = 1;i <= 3;i++) {
 
@@ -552,10 +552,40 @@ void TensorOperations::calcCoreSliceNorms(Eigen::Tensor<myTensorType, 3> B)
 
 		std::vector<double> slices;
 		for (int i = 0;i < eigVal.rows();i++) {
-			slices.push_back((-1)*sortedEigenval[i].first);
+			slices.push_back((-1)*sortedEigenval[i].first); //norm of slice = eigval
 		}
 		coreSliceNorms.push_back(slices);
 
+	}
+
+}
+
+
+void TensorOperations::calcCoreSliceNorms(Eigen::Tensor<myTensorType, 3> B)
+{
+	coreSliceNorms = std::vector< std::vector < double>>(3);
+
+	for (int i = 0; i < 3; i++) {
+		std::vector<double> n; //temp vector to store the slice norms
+
+		int converted = 0;
+		switch (i)
+		{
+		case 0: converted = 3;
+			break;
+
+		case 1: converted = 2;
+			break;
+
+		case 2: converted = 1;
+			break;
+		}
+
+		for (int j = 0;j < B.dimension(i);j++) {
+			Eigen::MatrixXd slice = TensorOperations::getSlice(B, converted, j);
+			n.push_back(slice.norm()); //TensorOperations::coreSliceNorms[i][j]);
+		}
+		coreSliceNorms[i] = n;//saving in global vector
 	}
 
 }
