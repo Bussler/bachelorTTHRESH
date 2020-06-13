@@ -15,6 +15,7 @@ namespace TensorTruncation {
 	void QuantizeData(double * coefficients, int numC);
 
 	void truncateTensor(Eigen::Tensor<myTensorType, 3>& b, std::vector<Eigen::MatrixXd>& us, int r1, int r2, int r3);
+	void ReTruncateTensor(Eigen::Tensor<myTensorType, 3>& b, std::vector<Eigen::MatrixXd>& us, int d1, int d2, int d3);
 
 }
 

@@ -59,12 +59,64 @@ void TensorTruncation::truncateTensor(Eigen::Tensor<myTensorType, 3>& b, std::ve
 	//TODO quantize the factor matrizes
 
 	
-	/*//DEBUGGING
+	//DEBUGGING
 	Eigen::Tensor<myTensorType,3> truncatedC = TensorOperations::createTensorFromArray(truncatedCore, r1, r2, r3);
 	std::cout << "TRUNCATED DATA" << std::endl;
 	std::cout << std::endl << "Core: " << std::endl << truncatedC << std::endl;
 	std::cout << std::endl << "U1: " << std::endl << us[0] << std::endl;
 	std::cout << std::endl << "U2: " << std::endl << us[1] << std::endl;
-	std::cout << std::endl << "U3: " << std::endl << us[2] << std::endl;*/
+	std::cout << std::endl << "U3: " << std::endl << us[2] << std::endl;
+	
+	ReTruncateTensor(truncatedC, us, b.dimension(0), b.dimension(1), b.dimension(2));
+	std::cout << "Retruncated: " << std::endl << truncatedC << std::endl;
+	std::cout << std::endl << "U1: " << std::endl << us[0] << std::endl;
+	std::cout << std::endl << "U2: " << std::endl << us[1] << std::endl;
+	std::cout << std::endl << "U3: " << std::endl << us[2] << std::endl;
+
+}
+
+void TensorTruncation::ReTruncateTensor(Eigen::Tensor<myTensorType, 3>& b, std::vector<Eigen::MatrixXd>& us, int d1, int d2, int d3)
+{
+	//reconstruct original-size Factor Matrizes
+	Eigen::MatrixXd u1(d1, d1);
+	u1.setZero();
+	for (int x = 0; x < b.dimension(0); x++) {
+		for (int y = 0;y < d1; y++) {
+			u1(y, x) = us[0](y, x);
+		}
+	}
+	us[0] = u1;
+
+	Eigen::MatrixXd u2(d2, d2);
+	u2.setZero();
+	for (int x = 0; x < b.dimension(1); x++) {
+		for (int y = 0;y < d2; y++) {
+			u2(y, x) = us[1](y, x);
+		}
+	}
+	us[1] = u2;
+
+	Eigen::MatrixXd u3(d3, d3);
+	u3.setZero();
+	for (int x = 0; x < b.dimension(2); x++) {
+		for (int y = 0;y < d3; y++) {
+			u3(y, x) = us[2](y, x);
+		}
+	}
+	us[2] = u3;
+
+	//reconstruct original-size Tensor and fill it
+	Eigen::Tensor<myTensorType, 3> ReconstructTensor(d1,d2,d3);
+	ReconstructTensor.setZero();
+	
+	for (int z = 0;z < b.dimension(2); z++) {
+		for (int x = 0;x < b.dimension(1); x++) {
+			for (int y = 0;y < b.dimension(0); y++) {
+				ReconstructTensor(y, x, z) = b(y, x, z);
+			}
+		}
+	}
+
+	b = ReconstructTensor;
 
 }
