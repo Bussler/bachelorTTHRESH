@@ -13,7 +13,7 @@ double TensorTruncation::logDequantize(int val, double max)//log2(16) = 4 -> 2^4
 }
 
 //performs quantization and maps numbers to 9 bits: 1 bit sign, 8 bit value
-void TensorTruncation::QuantizeData(double * coefficients, int numC) // TODO encode first element seperately!
+void TensorTruncation::QuantizeData(double * coefficients, int numC)
 {
 	//first find abs value of max element
 	double max = 0;
@@ -31,6 +31,107 @@ void TensorTruncation::QuantizeData(double * coefficients, int numC) // TODO enc
 		//TODO write Data in 9 bit here
 		std::cout << "Orig: " << coefficients[i] << " Quant: " << quant << " Reconstructed: "<<logDequantize(quant,max) << std::endl;
 	}
+
+}
+
+TensorTruncation::OptimalChoice TensorTruncation::createChoiceNode(double rE, double F, int r1, int r2, int r3)
+{
+	OptimalChoice oc;
+	oc.rE = rE;
+	oc.F = F;
+	oc.r1 = r1;
+	oc.r2 = r2;
+	oc.r3 = r3;
+
+	return oc;
+}
+
+bool compareByF(const TensorTruncation::OptimalChoice &a, const TensorTruncation::OptimalChoice &b)
+{
+	return a.F < b.F;
+}
+
+//iterate over core b and build Summead Area Table for fast computation of frobenius norm: save squared values for frob.Norm computation
+void TensorTruncation::buildSummedAreaTable(Eigen::Tensor<myTensorType, 3>& b, Eigen::Tensor<myTensorType, 3>& SAT)
+{
+	for (int z = 0;z < b.dimension(2);z++) {
+		for (int x = 0; x < b.dimension(1); x++) {
+			for (int y = 0;y < b.dimension(0); y++) {
+
+				//Grenzen überprüfen + Formel
+				double ival = pow(b(y, x, z), 2);
+				
+				if (x > 0 && y > 0 && z > 0)
+					ival += SAT(y - 1, x - 1, z - 1);
+				if (z > 0)
+					ival += SAT(y, x, z - 1);
+				if (y > 0)
+					ival += SAT(y - 1, x, z);
+				if (x > 0)
+					ival += SAT(y, x - 1, z);
+				if (x > 0 && y > 0)
+					ival -= SAT(y - 1, x - 1, z);
+				if (y > 0 && z > 0)
+					ival -= SAT(y - 1, x, z - 1);
+				if (x > 0 && z > 0)
+					ival -= SAT(y, x - 1, z - 1);
+
+				SAT(y, x, z) = ival;
+
+			}
+		}
+	}
+
+}
+
+
+void TensorTruncation::CalculateTruncation(Eigen::Tensor<myTensorType, 3>& b, std::vector<Eigen::MatrixXd>& us)
+{
+	//calculate r1,r2,r3 values
+
+	//build summed area table for fast computation of frob norm: needed for relative error estimate
+	Eigen::Tensor<myTensorType, 3> SAT(b.dimension(0), b.dimension(1), b.dimension(2));
+	SAT.setZero();
+	TensorTruncation::buildSummedAreaTable(b, SAT);
+
+	//calculating all possibilities
+	double frobNormSquared = SAT(b.dimension(0) - 1, b.dimension(1) - 1, b.dimension(2) - 1);
+	double frobNorm = sqrt(frobNormSquared);
+	double D123 = b.dimension(0)*b.dimension(1)*b.dimension(2);
+
+	std::vector<OptimalChoice> choices;//data container to hold all choices for r1,r2,r3 and rel error, compression factor
+
+	for (int r3 = 1; r3 <= b.dimension(2); r3++) {
+		for (int r2 = 1; r2 <= b.dimension(1); r2++) {
+			for (int r1 = 1; r1 <= b.dimension(0); r1++) {
+				
+				//formulas according to R.Ballester Paper "Lossy Volume Compression using Tucker truncation and thresholding"
+				double F = ((r1*r2*r3) + (r1*b.dimension(0)) + (r2*b.dimension(1)) + (r3*b.dimension(2))) / D123;
+				double relErr = sqrt(frobNormSquared - SAT(r1-1, r2-1, r3-1)) / frobNorm;
+
+				choices.push_back(createChoiceNode(relErr, F, r1, r2, r3));
+
+			}
+		}
+	}
+
+	std::vector<OptimalChoice> C;//data container to hold all best choices for r1,r2,r3 and rel error, compression factor
+	//sort choice-vector in increasing order (repsect to F)
+	std::sort(choices.begin(), choices.end(), compareByF);
+	double bestError = DBL_MAX;
+	for (int i = 0;i < choices.size();i++) {
+		
+		if (choices[i].rE<bestError) {//found improvement
+			bestError = choices[i].rE;
+			C.push_back(choices[i]);
+		}
+
+	}
+
+	//truncate core given the optimal r1, r2, r3 values
+
+	//TODO test for (2,2,2)
+	truncateTensor(b, us, 2, 2, 2);
 
 }
 
@@ -59,7 +160,7 @@ void TensorTruncation::truncateTensor(Eigen::Tensor<myTensorType, 3>& b, std::ve
 	//TODO quantize the factor matrizes
 
 	
-	//DEBUGGING
+	/*//DEBUGGING
 	Eigen::Tensor<myTensorType,3> truncatedC = TensorOperations::createTensorFromArray(truncatedCore, r1, r2, r3);
 	std::cout << "TRUNCATED DATA" << std::endl;
 	std::cout << std::endl << "Core: " << std::endl << truncatedC << std::endl;
@@ -71,7 +172,7 @@ void TensorTruncation::truncateTensor(Eigen::Tensor<myTensorType, 3>& b, std::ve
 	std::cout << "Retruncated: " << std::endl << truncatedC << std::endl;
 	std::cout << std::endl << "U1: " << std::endl << us[0] << std::endl;
 	std::cout << std::endl << "U2: " << std::endl << us[1] << std::endl;
-	std::cout << std::endl << "U3: " << std::endl << us[2] << std::endl;
+	std::cout << std::endl << "U3: " << std::endl << us[2] << std::endl;*/
 
 }
 
