@@ -13,7 +13,7 @@ double TensorTruncation::logDequantize(int val, double max)//log2(16) = 4 -> 2^4
 }
 
 //performs quantization and maps numbers to 9 bits: 1 bit sign, 8 bit value
-void TensorTruncation::QuantizeData(double * coefficients, int numC)
+void TensorTruncation::QuantizeData(double * coefficients, int numC, bool isCore)
 {
 	//first find abs value of max element
 	double max = 0;
@@ -23,13 +23,36 @@ void TensorTruncation::QuantizeData(double * coefficients, int numC)
 		}
 	}
 
-	double hotCornerElement = coefficients[0];//safe hot corner seperately, since it holds most of the core's energy
-	//TODO safe hot corner element
+	uint64_t tmpMax;
+	memcpy(&tmpMax, (void*)&max, sizeof(max));
+	BitIO::writeBit(tmpMax, 64);//safe max element
 
-	for (int i = 1;i < numC; i++) {
-		int quant = logQuantize(coefficients[i], max);
-		//TODO write Data in 9 bit here
-		std::cout << "Orig: " << coefficients[i] << " Quant: " << quant << " Reconstructed: "<<logDequantize(quant,max) << std::endl;
+	if (isCore) {//safe hot corner element seperately
+
+		double hotCornerElement = coefficients[0];//safe hot corner seperately, since it holds most of the core's energy
+		uint64_t tmp;
+		memcpy(&tmp, (void*)&hotCornerElement, sizeof(hotCornerElement));
+		BitIO::writeBit(tmp, 64);//safe hot corner element
+
+		for (int i = 1;i < numC; i++) {
+			int quant = logQuantize(coefficients[i], max);
+			//write Data in 9 bit here
+			BitIO::writeBit(coefficients[i] < 0, 1);//saving sign with 1 bit: 1 for negative
+			BitIO::writeBit(quant, 8);//8 bit for quantization
+
+			//std::cout << "Orig: " << coefficients[i] << " Quant: " << quant << " Reconstructed: "<<logDequantize(quant,max) << std::endl;
+		}
+
+	}
+	else {
+
+		for (int i = 0;i < numC; i++) {
+			int quant = logQuantize(coefficients[i], max);
+			//write Data in 9 bit here
+			BitIO::writeBit(coefficients[i] < 0, 1);//saving sign with 1 bit: 1 for negative
+			BitIO::writeBit(quant, 8);//8 bit for quantization
+		}
+
 	}
 
 }
@@ -129,11 +152,104 @@ void TensorTruncation::CalculateTruncation(Eigen::Tensor<myTensorType, 3>& b, st
 	}
 
 	//truncate core given the optimal r1, r2, r3 values
-
+	
 	//TODO test for (2,2,2)
-	truncateTensor(b, us, 2, 2, 2);
+	int r1 = 2;
+	int r2 = 2;
+	int r3 = 2;
+	BitIO::writeBit(uint64_t(r1), 32);
+	BitIO::writeBit(uint64_t(r2), 32);
+	BitIO::writeBit(uint64_t(r3), 32);
+
+	truncateTensor(b, us, r1, r2, r3);
 
 }
+
+void TensorTruncation::CalculateRetruncation(Eigen::Tensor<myTensorType, 3>& b, std::vector<Eigen::MatrixXd>& us, int d1, int d2, int d3, int r1, int r2, int r3)
+{
+	//read in the truncated core
+	myTensorType* truncatedCore = (myTensorType*)malloc(sizeof(myTensorType)*(r1*r2*r3)); //pointer to hold surviving core data
+
+	int64_t hotTempMax = BitIO::readBit(64);//first read in the max element
+	double max = 0;
+	memcpy(&max, (void*)&hotTempMax, sizeof(max));
+
+
+	int64_t hotTemp = BitIO::readBit(64);//second read in the hot corner element
+	double hotCornerElement = 0;
+	memcpy(&hotCornerElement, (void*)&hotTemp, sizeof(hotCornerElement));
+	truncatedCore[0] = hotCornerElement;
+
+	for (int i = 1;i < r1*r2*r3; i++) {//read in and dequantize the values
+		bool sign = BitIO::readBit(1);
+		int quant = BitIO::readBit(8);
+
+		double dequantize = logDequantize(quant, max);
+
+		if (sign) {
+			truncatedCore[i] = (-1)* dequantize;
+		}
+		else {
+			truncatedCore[i] = dequantize;
+		}
+		
+	}
+
+	b = TensorOperations::createTensorFromArray(truncatedCore, r1, r2, r3);
+
+	//read in the truncated factor matrice
+	for (int i = 0;i < 3;i++) {
+
+		int cols = 0;
+		int rows = 0;
+		
+		switch (i)
+		{
+		case 0:
+			rows = d1;
+			cols = r1;
+			break;
+
+		case 1:
+			rows = d2;
+			cols = r2;
+			break;
+
+		case 2:
+			rows = d3;
+			cols = r3;
+			break;
+		}
+
+		double* data = (double*)malloc(sizeof(double)*(cols*rows)); //pointer to hold surviving matrix data
+
+		int64_t hotTempMax = BitIO::readBit(64);//first read in the max element
+		double max = 0;
+		memcpy(&max, (void*)&hotTempMax, sizeof(max));
+
+		for (int i = 0;i < cols*rows; i++) {
+			bool sign = BitIO::readBit(1);
+			int quant = BitIO::readBit(8);
+
+			double dequantize = logDequantize(quant, max);
+
+			if (sign) {
+				data[i] = (-1)* dequantize;
+			}
+			else {
+				data[i] = dequantize;
+			}
+		}
+
+		us[i] = Eigen::Map<Eigen::MatrixXd>(data, rows, cols);
+
+
+	}
+
+	ReTruncateTensor(b, us, d1, d2, d3);//fill missing values with 0
+
+}
+
 
 //slice core and factor matrix till we have a (r1,r2,r3) core; rn <= dim of core
 void TensorTruncation::truncateTensor(Eigen::Tensor<myTensorType, 3>& b, std::vector<Eigen::MatrixXd>& us, int r1, int r2, int r3)
@@ -150,25 +266,31 @@ void TensorTruncation::truncateTensor(Eigen::Tensor<myTensorType, 3>& b, std::ve
 		}
 	}
 
-	QuantizeData(truncatedCore, r1*r2*r3);//quantize surviving core elements and safe them
+	QuantizeData(truncatedCore, r1*r2*r3, true);//quantize surviving core elements and safe them
 
 	//truncating the factor matrices
-	us[0] = us[0].leftCols(r1);
-	us[1] = us[1].leftCols(r2);
-	us[2] = us[2].leftCols(r3);
+	Eigen::MatrixXd temp = us[0].leftCols(r1);
+	us[0] = temp;
+	temp = us[1].leftCols(r2);
+	us[1] = temp;
+	temp = us[2].leftCols(r3);
+	us[2] = temp;
 
-	//TODO quantize the factor matrizes
+	//quantize the factor matrizes
+	QuantizeData(us[0].data(), us[0].cols()*us[0].rows(),false);
+	QuantizeData(us[1].data(), us[1].cols()*us[1].rows(), false);
+	QuantizeData(us[2].data(), us[2].cols()*us[2].rows(), false);
 
 	
-	/*//DEBUGGING
-	Eigen::Tensor<myTensorType,3> truncatedC = TensorOperations::createTensorFromArray(truncatedCore, r1, r2, r3);
+	//DEBUGGING
+	/*Eigen::Tensor<myTensorType,3> truncatedC = TensorOperations::createTensorFromArray(truncatedCore, r1, r2, r3);
 	std::cout << "TRUNCATED DATA" << std::endl;
 	std::cout << std::endl << "Core: " << std::endl << truncatedC << std::endl;
 	std::cout << std::endl << "U1: " << std::endl << us[0] << std::endl;
 	std::cout << std::endl << "U2: " << std::endl << us[1] << std::endl;
-	std::cout << std::endl << "U3: " << std::endl << us[2] << std::endl;
+	std::cout << std::endl << "U3: " << std::endl << us[2] << std::endl;*/
 	
-	ReTruncateTensor(truncatedC, us, b.dimension(0), b.dimension(1), b.dimension(2));
+	/*ReTruncateTensor(truncatedC, us, b.dimension(0), b.dimension(1), b.dimension(2));
 	std::cout << "Retruncated: " << std::endl << truncatedC << std::endl;
 	std::cout << std::endl << "U1: " << std::endl << us[0] << std::endl;
 	std::cout << std::endl << "U2: " << std::endl << us[1] << std::endl;
