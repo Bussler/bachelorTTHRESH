@@ -108,7 +108,7 @@ void TensorTruncation::buildSummedAreaTable(Eigen::Tensor<myTensorType, 3>& b, E
 }
 
 
-void TensorTruncation::CalculateTruncation(Eigen::Tensor<myTensorType, 3>& b, std::vector<Eigen::MatrixXd>& us)
+void TensorTruncation::CalculateTruncation(Eigen::Tensor<myTensorType, 3>& b, std::vector<Eigen::MatrixXd>& us, double givenRe)
 {
 	//calculate r1,r2,r3 values
 
@@ -152,11 +152,25 @@ void TensorTruncation::CalculateTruncation(Eigen::Tensor<myTensorType, 3>& b, st
 	}
 
 	//truncate core given the optimal r1, r2, r3 values
-	
-	//TODO test for (2,2,2)
-	int r1 = 2;
-	int r2 = 2;
-	int r3 = 2;
+	int r1 = 0;//test for (2, 2, 2), (200, 200, 150)
+	int r2 = 0;
+	int r3 = 0;
+
+	for (int i = 0;i < C.size();i++) {//find best re-f pair
+		if (C[i].rE<=givenRe || i==C.size()-1) {
+			if ((i>0) && abs(C[i].rE-givenRe)>abs(C[i-1].rE-givenRe)) {
+				r1 = C[i-1].r1;
+				r2 = C[i - 1].r2;
+				r3 = C[i - 1].r3;
+			}
+			else {
+				r1 = C[i].r1;
+				r2 = C[i].r2;
+				r3 = C[i].r3;
+			}
+		}
+	}
+
 	BitIO::writeBit(uint64_t(r1), 32);
 	BitIO::writeBit(uint64_t(r2), 32);
 	BitIO::writeBit(uint64_t(r3), 32);
@@ -342,4 +356,133 @@ void TensorTruncation::ReTruncateTensor(Eigen::Tensor<myTensorType, 3>& b, std::
 
 	b = ReconstructTensor;
 
+}
+
+//Truncate Core and then safe data with tthresh
+void TensorTruncation::TruncateTensorTTHRESH(Eigen::Tensor<myTensorType, 3>& b, std::vector<Eigen::MatrixXd>& us, double errorTarget, double TruncatePercentage)
+{
+	//calculate how much to cut off
+	int r1 = b.dimension(0)-1;
+	int r2 = b.dimension(1)-1;
+	int r3 = b.dimension(2)-0;
+
+	//write characteristic data for decoding
+	BitIO::writeBit(uint64_t(b.dimension(0)), 32);
+	BitIO::writeBit(uint64_t(b.dimension(1)), 32);
+	BitIO::writeBit(uint64_t(b.dimension(2)), 32);
+
+	BitIO::writeBit(uint64_t(r1), 32);
+	BitIO::writeBit(uint64_t(r2), 32);
+	BitIO::writeBit(uint64_t(r3), 32);
+
+
+	//truncate core and factor matrizes accordingly
+	myTensorType* tCoreData = truncateTensorWithoutQuant(b, us, r1, r2, r3);
+
+	//Save data with RLE+AC
+	std::vector<std::vector<int>> rle;
+	std::vector<std::vector<bool>> raw;
+	std::vector<bool> signs;
+	double scale = 0;
+
+	std::vector<uint64_t> CoreMask = TTHRESHEncoding::encodeRLE(tCoreData, r1*r2*r3, errorTarget, true, rle, raw, scale, signs);
+
+	//encode the factor matrices: calculate core-slice norms TODO rballester special case 0
+	Eigen::Tensor<myTensorType, 3> maskTensor = b; //TensorOperations::createTensorFromArray((myTensorType*)CoreMask.data(), b.dimension(0), b.dimension(1), b.dimension(2));//b
+	std::vector<std::vector<double>> usNorms;
+
+	for (int i = 0; i < us.size();i++) {//multiply each U col with core-slice norm TODO umschreiben
+		std::vector<double> n;
+		int converted = 0;
+		switch (i)
+		{
+		case 0: converted = 3;
+			break;
+
+		case 1: converted = 2;
+			break;
+
+		case 2: converted = 1;
+			break;
+		}
+
+		for (int j = 0;j < us[i].cols();j++) {
+			Eigen::MatrixXd slice = TensorOperations::getSlice(maskTensor, converted, j);
+			us[i].col(j) *= slice.norm(); //TensorOperations::coreSliceNorms[i][j];
+			n.push_back(slice.norm()); //TensorOperations::coreSliceNorms[i][j]);
+		}
+		usNorms.push_back(n);
+	}
+
+	for (int i = 0;i < usNorms.size();i++) {
+		BitIO::writeBit(usNorms[i].size(), 64);
+		for (int j = 0;j < usNorms[i].size();j++) {
+			uint64_t tmp;
+			memcpy(&tmp, (void*)&usNorms[i][j], sizeof(usNorms[i][j]));
+			BitIO::writeBit(tmp, 64);//slicenorms abspeichern
+		}
+	}
+
+	std::vector<std::vector<std::vector<int>>> usRle;
+	std::vector<std::vector<std::vector<bool>>> usRaw;
+	std::vector<double> usScales;
+	std::vector<std::vector<bool>> usSigns;
+
+	for (int i = 0; i < us.size(); i++) {//encode the factor matizes
+		usRle.push_back(std::vector < std::vector<int>>());
+		usRaw.push_back(std::vector < std::vector<bool>>());
+		usScales.push_back(0);
+		usSigns.push_back(std::vector<bool>());
+
+		TTHRESHEncoding::encodeRLE(us[i].data(), us[i].cols()*us[i].rows(), errorTarget, false, usRle[i], usRaw[i], usScales[i], usSigns[i]);
+	}
+
+	//Debugging
+	/*Eigen::Tensor<myTensorType,3> truncatedC = TensorOperations::createTensorFromArray(tCoreData, r1, r2, r3);
+	std::cout << "TRUNCATED DATA" << std::endl;
+	std::cout << std::endl << "Core: " << std::endl << truncatedC << std::endl;
+	std::cout << std::endl << "U1: " << std::endl << us[0] << std::endl;
+	std::cout << std::endl << "U2: " << std::endl << us[1] << std::endl;
+	std::cout << std::endl << "U3: " << std::endl << us[2] << std::endl;*/
+
+	/*ReTruncateTensor(truncatedC, us, b.dimension(0), b.dimension(1), b.dimension(2));
+	std::cout << "Retruncated: " << std::endl << truncatedC << std::endl;
+	std::cout << std::endl << "U1: " << std::endl << us[0] << std::endl;
+	std::cout << std::endl << "U2: " << std::endl << us[1] << std::endl;
+	std::cout << std::endl << "U3: " << std::endl << us[2] << std::endl;*/
+
+}
+
+void TensorTruncation::RetruncateTensorTTHRESH(Eigen::Tensor<myTensorType, 3>& b, std::vector<Eigen::MatrixXd>& us, int d1, int d2, int d3, int r1, int r2, int r3)
+{
+
+	ReTruncateTensor(b, us, d1, d2, d3);//fill missing values with 0
+
+}
+
+myTensorType* TensorTruncation::truncateTensorWithoutQuant(Eigen::Tensor<myTensorType, 3>& b, std::vector<Eigen::MatrixXd>& us, int r1, int r2, int r3)
+{
+	myTensorType* truncatedCore = (myTensorType*)malloc(sizeof(myTensorType)*(r1*r2*r3)); //pointer to hold surviving core data
+
+	//truncating the core
+	int coreCounter = 0;
+	for (int z = 0;z < r3; z++) {
+		for (int x = 0;x < r2; x++) {
+			for (int y = 0;y < r1; y++) {
+				truncatedCore[coreCounter++] = b(y, x, z);
+			}
+		}
+	}
+
+
+	//truncating the factor matrices
+	Eigen::MatrixXd temp = us[0].leftCols(r1);
+	us[0] = temp;
+	temp = us[1].leftCols(r2);
+	us[1] = temp;
+	temp = us[2].leftCols(r3);
+	us[2] = temp;
+
+
+	return truncatedCore;
 }
