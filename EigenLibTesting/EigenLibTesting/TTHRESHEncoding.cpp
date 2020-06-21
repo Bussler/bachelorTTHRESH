@@ -30,11 +30,89 @@ double TTHRESHEncoding::calcEntropie(std::vector<int> rlePart)
 	return (-1)*entropy;
 }
 
+//calculate the stopping plane for truncation calculation
+int TTHRESHEncoding::calcRLEP(double * coefficients, int numC, double errorTarget, double& scale)
+{
+	int plane = 0;
+
+	double max = 0;
+	for (int i = 0;i < numC;i++) {
+		if (abs(coefficients[i]) > max) {
+			max = abs(coefficients[i]);
+		}
+	}
+
+	scale = ldexp(1, 63 - ilogb(max));//calculate scale factor according to tthresh paper formula
+	long double frobNormSq = 0;//Squared Frobeniusnorm of tensor
+
+	uint64_t * n = (uint64_t*)malloc(sizeof(uint64_t)*numC);//array to store the scaled coefficients
+
+	//cast coefficients from double to uint64 and calculate frobNormSq
+	for (int i = 0; i < numC; i++) {
+		n[i] = uint64_t(abs(coefficients[i])*scale);//scale so that the leading bit of max element is 1
+		frobNormSq += long double(abs(coefficients[i]) * abs(coefficients[i]));
+	}
+
+	frobNormSq *= scale * scale;
+
+	long double sse = frobNormSq;//exit condition: sse < given threshold
+	long double thresh = errorTarget * errorTarget*frobNormSq;
+	bool done = false;
+
+	//values for alpha calc
+	long double lastError = 1;
+	int totalBits = 0;
+	int lastTotalBits = 0;
+	double errorDelta = 0, sizeDelta = 0, error = 0;
+
+	std::vector<uint64_t> mask(numC, 0);//creating bitmask to determine already relevant coefficients
+
+	for (int p = 63;p >= 0; p--) {//running through bit-planes
+
+		int run = 0;
+		int planeOnes = 0;//sse is reduced by each 1 in plane
+		long double planeSSE = 0;
+
+		for (int co = 0; co < numC; co++) {//running through the coefficients
+
+			unsigned curBit = ((n[co] >> p) & 1);//access p-th bits
+			planeOnes += curBit;
+
+			if (curBit == 1) {//update sse and check for exit condition
+				planeSSE += long double(n[co] - mask[co]);
+
+				mask[co] |= (unsigned long long(1) << p);//mark in mask if active
+
+				long double k = (unsigned long long(1) << p);
+				long double sseCur = sse + (-2 * k*planeSSE + k * k*planeOnes);
+
+				if (sseCur <= thresh) {
+					done = true;
+					plane = p;
+					break;
+				}
+
+			}
+
+		}
+
+		long double k = (unsigned long long(1) << p);
+		sse += (-2)*k*planeSSE + k * k*planeOnes;//updating sse if exit condition was not reached
+
+		if (done) {
+			break;
+		}
+	}
+
+
+	return plane;
+}
+
 //encode the coefficients with the help of rle/verbatim until error is below given threshold. Results are written and safed in rle and raw vectors(debugging): Adapted from rballester Github (Alpha, SSE calc)
 std::vector<uint64_t> TTHRESHEncoding::encodeRLE(double * c, int numC, double errorTarget, bool isCore, std::vector<std::vector<int>>& rle, std::vector<std::vector<bool>>& raw, double& scale, std::vector<bool>& signs)
 {
-	std::ofstream myfile;
-	myfile.open("Planeausgabe.csv");
+	//std::ofstream myfile;
+	//myfile.open("Planeausgabe.csv");
 
 	double max = 0;
 	for (int i = 0;i < numC;i++) {
@@ -70,7 +148,7 @@ std::vector<uint64_t> TTHRESHEncoding::encodeRLE(double * c, int numC, double er
 	
 	for (int p = 63;p >= 0; p--) {//running through bit-planes
 
-		myfile << "Plane: " << p << "\n";//TODO delete later
+		//myfile << "Plane: " << p << "\n";//TODO delete later
 
 		std::vector<bool> cRaw;
 		std::vector<int> cRLE;
@@ -86,7 +164,7 @@ std::vector<uint64_t> TTHRESHEncoding::encodeRLE(double * c, int numC, double er
 			if (mask[co]==0) {//not active, encode rle
 
 				if (curBit==1) {
-					myfile << co << "," << int(n[co]/scaleK) << "\n";
+					//myfile << co << "," << int(n[co]/scaleK) << "\n";
 					cRLE.push_back(run);
 					run = 0;
 				}
@@ -201,7 +279,7 @@ std::vector<uint64_t> TTHRESHEncoding::encodeRLE(double * c, int numC, double er
 		totalBitsCore = totalBits;
 	}
 
-	myfile.close();
+	//myfile.close();
 	return mask;
 }
 
@@ -581,13 +659,13 @@ void TTHRESHEncoding::encodeACVektor(std::vector<std::vector<int>>& rleVek)
 
 	}
 
-	//DEBUGGING
+	/*//DEBUGGING
 	std::ofstream myfile;
 	myfile.open("TestausgabeFreq.csv");
 	for (auto it = freq.begin(); it != freq.end(); it++) {//calculate the probabilities and size of interval
 		myfile << it->first << " ," << (it->second).first << "\n";
 	}
-	myfile.close();
+	myfile.close();*/
 
 	uint64_t count = 0;
 	for (auto it = freq.begin(); it != freq.end(); it++) {//calculate the probabilities and size of interval

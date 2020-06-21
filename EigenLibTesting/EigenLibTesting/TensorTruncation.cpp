@@ -361,10 +361,46 @@ void TensorTruncation::ReTruncateTensor(Eigen::Tensor<myTensorType, 3>& b, std::
 //Truncate Core and then safe data with tthresh
 void TensorTruncation::TruncateTensorTTHRESH(Eigen::Tensor<myTensorType, 3>& b, std::vector<Eigen::MatrixXd>& us, double errorTarget, double TruncatePercentage)
 {
+	//calculate core slice norms in order to calculate how much of the tensor we are allowed to cut off
+	int zeroCols[3];
+	//zeroCols[0] = 16;
+	//zeroCols[1] = 56;
+	//zeroCols[2] = 4;
+
+	TensorOperations::calcCoreSliceNorms(b);
+
+	for (int i = 0;i < TensorOperations::coreSliceNorms.size();i++) {
+		for (int j = 0;j < TensorOperations::coreSliceNorms[i].size();j++) {
+			us[i].col(j) *= TensorOperations::coreSliceNorms[i][j]; //scale columns of factor matrices with core slice norms in order to scale for overall error
+		}
+
+		double scale = 0;
+		int p = TTHRESHEncoding::calcRLEP(us[i].data(), us[i].cols()*us[i].rows(), errorTarget, scale);//dummy run the rle to calculate stopping plane p and scale factor
+
+		int countZeroCols = 0;
+		for (int j = 0;j < us[i].cols();j++) {//calculate how many columns of the factor matrix would be safed as 0, these can be cut off without introducing an error!
+			bool allZeroes = true;
+			for (int k = 0;k < us[i].rows();k++) {
+				if (abs(us[i](k,j)*scale) >= pow(2,p)) {//all coefficients that are < 2^p are cut off in the rle step
+					allZeroes = false;
+					break;
+				}
+			}
+			if (allZeroes) {
+				countZeroCols++;
+			}
+		}
+
+		zeroCols[i] = countZeroCols;
+
+	}
+
+	std::cout << "Zeroes: " << zeroCols[0] << " " << zeroCols[1] << " "<< zeroCols[2] << std::endl;
+
 	//calculate how much to cut off
-	int r1 = b.dimension(0)-1;
-	int r2 = b.dimension(1)-1;
-	int r3 = b.dimension(2)-0;
+	int r1 = b.dimension(0)- zeroCols[0];//5
+	int r2 = b.dimension(1)- zeroCols[1];//3
+	int r3 = b.dimension(2)- zeroCols[2];//0
 
 	//write characteristic data for decoding
 	BitIO::writeBit(uint64_t(b.dimension(0)), 32);
@@ -385,41 +421,28 @@ void TensorTruncation::TruncateTensorTTHRESH(Eigen::Tensor<myTensorType, 3>& b, 
 	std::vector<bool> signs;
 	double scale = 0;
 
-	std::vector<uint64_t> CoreMask = TTHRESHEncoding::encodeRLE(tCoreData, r1*r2*r3, errorTarget, true, rle, raw, scale, signs);
+	std::vector<uint64_t> CoreMask = TTHRESHEncoding::encodeRLE(tCoreData, r1*r2*r3, errorTarget, true, rle, raw, scale, signs);//encode the core with rle+ac
 
 	//encode the factor matrices: calculate core-slice norms TODO rballester special case 0
 	Eigen::Tensor<myTensorType, 3> maskTensor = b; //TensorOperations::createTensorFromArray((myTensorType*)CoreMask.data(), b.dimension(0), b.dimension(1), b.dimension(2));//b
 	std::vector<std::vector<double>> usNorms;
 
-	for (int i = 0; i < us.size();i++) {//multiply each U col with core-slice norm TODO umschreiben
+	for (int i = 0;i < us.size();i++) {//multiply each U col with core-slice norm
 		std::vector<double> n;
-		int converted = 0;
-		switch (i)
-		{
-		case 0: converted = 3;
-			break;
-
-		case 1: converted = 2;
-			break;
-
-		case 2: converted = 1;
-			break;
-		}
 
 		for (int j = 0;j < us[i].cols();j++) {
-			Eigen::MatrixXd slice = TensorOperations::getSlice(maskTensor, converted, j);
-			us[i].col(j) *= slice.norm(); //TensorOperations::coreSliceNorms[i][j];
-			n.push_back(slice.norm()); //TensorOperations::coreSliceNorms[i][j]);
+			//us[i].col(j) *= TensorOperations::coreSliceNorms[i][j];
+			n.push_back(TensorOperations::coreSliceNorms[i][j]);
 		}
 		usNorms.push_back(n);
 	}
 
-	for (int i = 0;i < usNorms.size();i++) {
+	for (int i = 0;i < usNorms.size();i++) {//saving of norms for decompression
 		BitIO::writeBit(usNorms[i].size(), 64);
 		for (int j = 0;j < usNorms[i].size();j++) {
 			uint64_t tmp;
 			memcpy(&tmp, (void*)&usNorms[i][j], sizeof(usNorms[i][j]));
-			BitIO::writeBit(tmp, 64);//slicenorms abspeichern
+			BitIO::writeBit(tmp, 64);//write slicenorms to memory
 		}
 	}
 
@@ -434,22 +457,8 @@ void TensorTruncation::TruncateTensorTTHRESH(Eigen::Tensor<myTensorType, 3>& b, 
 		usScales.push_back(0);
 		usSigns.push_back(std::vector<bool>());
 
-		TTHRESHEncoding::encodeRLE(us[i].data(), us[i].cols()*us[i].rows(), errorTarget, false, usRle[i], usRaw[i], usScales[i], usSigns[i]);
+		TTHRESHEncoding::encodeRLE(us[i].data(), us[i].cols()*us[i].rows(), errorTarget, false, usRle[i], usRaw[i], usScales[i], usSigns[i]);//encode the factor matrices with rle+ac
 	}
-
-	//Debugging
-	/*Eigen::Tensor<myTensorType,3> truncatedC = TensorOperations::createTensorFromArray(tCoreData, r1, r2, r3);
-	std::cout << "TRUNCATED DATA" << std::endl;
-	std::cout << std::endl << "Core: " << std::endl << truncatedC << std::endl;
-	std::cout << std::endl << "U1: " << std::endl << us[0] << std::endl;
-	std::cout << std::endl << "U2: " << std::endl << us[1] << std::endl;
-	std::cout << std::endl << "U3: " << std::endl << us[2] << std::endl;*/
-
-	/*ReTruncateTensor(truncatedC, us, b.dimension(0), b.dimension(1), b.dimension(2));
-	std::cout << "Retruncated: " << std::endl << truncatedC << std::endl;
-	std::cout << std::endl << "U1: " << std::endl << us[0] << std::endl;
-	std::cout << std::endl << "U2: " << std::endl << us[1] << std::endl;
-	std::cout << std::endl << "U3: " << std::endl << us[2] << std::endl;*/
 
 }
 

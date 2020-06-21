@@ -25,12 +25,12 @@ namespace TTHRESHEncoding {
 	};
 
 	double calcEntropie(std::vector<int> rlePart);
+	int calcRLEP(double * coefficients, int numC, double errorTarget, double& scale);
 
 	std::vector<uint64_t> encodeRLE(double * coefficients, int numC, double errorTarget, bool isCore, std::vector<std::vector<int>> & rle, std::vector<std::vector<bool>>& raw, double& scale, std::vector<bool>& signs);
 	double* decodeRLE(std::vector<std::vector<int>>& rle, std::vector<std::vector<bool>>& raw, int numC, double scale, std::vector<bool>& signs);
 	
 	void compress(Eigen::Tensor<myTensorType, 3>& b, std::vector<Eigen::MatrixXd>& us, double errorTarget, ErrorType etype, std::vector<std::vector<int>> & rle, std::vector<std::vector<bool>>& raw, double& scale, std::vector<bool>& signs, double* optimal);
-	//TODO maybe better to encode whole rle vector<vector> at once
 	//void encodeAC(std::vector<int> rle);
 	void putBitPlusPending(bool bit, int& pending);
 
