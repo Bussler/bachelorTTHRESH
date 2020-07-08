@@ -33,7 +33,7 @@ namespace TensorTruncation {
 	void truncateTensor(Eigen::Tensor<myTensorType, 3>& b, std::vector<Eigen::MatrixXd>& us, int r1, int r2, int r3);
 	void ReTruncateTensor(Eigen::Tensor<myTensorType, 3>& b, std::vector<Eigen::MatrixXd>& us, int d1, int d2, int d3);
 
-	void TruncateTensorTTHRESH(Eigen::Tensor<myTensorType, 3>& b, std::vector<Eigen::MatrixXd>& us, double errorTarget, double TruncatePercentage);
+	void TruncateTensorTTHRESH(Eigen::Tensor<myTensorType, 3>& b, std::vector<Eigen::MatrixXd>& us, double errorTarget);
 	void RetruncateTensorTTHRESH(Eigen::Tensor<myTensorType, 3>& b, std::vector<Eigen::MatrixXd>& us, int d1, int d2, int d3, int r1, int r2, int r3);
 	myTensorType* truncateTensorWithoutQuant(Eigen::Tensor<myTensorType, 3>& b, std::vector<Eigen::MatrixXd>& us, int r1, int r2, int r3);
 

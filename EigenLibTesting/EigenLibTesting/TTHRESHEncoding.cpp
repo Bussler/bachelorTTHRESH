@@ -353,7 +353,7 @@ double * TTHRESHEncoding::decodeRLE(std::vector<std::vector<int>>& rle, std::vec
 void TTHRESHEncoding::compress(Eigen::Tensor<myTensorType, 3>& b, std::vector<Eigen::MatrixXd>& us, double errorTarget, ErrorType etype, std::vector<std::vector<int>>& rle, std::vector<std::vector<bool>>& raw, double& scale, std::vector<bool>& signs, double* optimal)
 {
 
-	double* coefficients = b.data();// TensorOperations::reorderCoreWeighted(b, 2, 4);// TensorOperations::reorderCore(b);// TensorOperations::reorderCoreWeighted(b, 2, 4);// b.data();
+	double* coefficients = b.data();// TensorOperations::reorderCoreWeighted(b, 2, 4);// TensorOperations::reorderCore(b);// b.data();
 	int numC = b.dimension(0)*b.dimension(1)*b.dimension(2);
 	//convert sse according to target error
 

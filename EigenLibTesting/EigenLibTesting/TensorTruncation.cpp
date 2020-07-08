@@ -168,8 +168,11 @@ void TensorTruncation::CalculateTruncation(Eigen::Tensor<myTensorType, 3>& b, st
 				r2 = C[i].r2;
 				r3 = C[i].r3;
 			}
+			break;
 		}
 	}
+
+	std::cout << "R: " << r1 << " " << r2 << " " << r3 << std::endl;
 
 	BitIO::writeBit(uint64_t(r1), 32);
 	BitIO::writeBit(uint64_t(r2), 32);
@@ -211,7 +214,7 @@ void TensorTruncation::CalculateRetruncation(Eigen::Tensor<myTensorType, 3>& b, 
 
 	b = TensorOperations::createTensorFromArray(truncatedCore, r1, r2, r3);
 
-	//read in the truncated factor matrice
+	//read in the truncated factor matrices
 	for (int i = 0;i < 3;i++) {
 
 		int cols = 0;
@@ -295,21 +298,6 @@ void TensorTruncation::truncateTensor(Eigen::Tensor<myTensorType, 3>& b, std::ve
 	QuantizeData(us[1].data(), us[1].cols()*us[1].rows(), false);
 	QuantizeData(us[2].data(), us[2].cols()*us[2].rows(), false);
 
-	
-	//DEBUGGING
-	/*Eigen::Tensor<myTensorType,3> truncatedC = TensorOperations::createTensorFromArray(truncatedCore, r1, r2, r3);
-	std::cout << "TRUNCATED DATA" << std::endl;
-	std::cout << std::endl << "Core: " << std::endl << truncatedC << std::endl;
-	std::cout << std::endl << "U1: " << std::endl << us[0] << std::endl;
-	std::cout << std::endl << "U2: " << std::endl << us[1] << std::endl;
-	std::cout << std::endl << "U3: " << std::endl << us[2] << std::endl;*/
-	
-	/*ReTruncateTensor(truncatedC, us, b.dimension(0), b.dimension(1), b.dimension(2));
-	std::cout << "Retruncated: " << std::endl << truncatedC << std::endl;
-	std::cout << std::endl << "U1: " << std::endl << us[0] << std::endl;
-	std::cout << std::endl << "U2: " << std::endl << us[1] << std::endl;
-	std::cout << std::endl << "U3: " << std::endl << us[2] << std::endl;*/
-
 }
 
 void TensorTruncation::ReTruncateTensor(Eigen::Tensor<myTensorType, 3>& b, std::vector<Eigen::MatrixXd>& us, int d1, int d2, int d3)
@@ -359,7 +347,7 @@ void TensorTruncation::ReTruncateTensor(Eigen::Tensor<myTensorType, 3>& b, std::
 }
 
 //Truncate Core and then safe data with tthresh
-void TensorTruncation::TruncateTensorTTHRESH(Eigen::Tensor<myTensorType, 3>& b, std::vector<Eigen::MatrixXd>& us, double errorTarget, double TruncatePercentage)
+void TensorTruncation::TruncateTensorTTHRESH(Eigen::Tensor<myTensorType, 3>& b, std::vector<Eigen::MatrixXd>& us, double errorTarget)
 {
 	//calculate core slice norms in order to calculate how much of the tensor we are allowed to cut off
 	int zeroCols[3];
@@ -401,6 +389,8 @@ void TensorTruncation::TruncateTensorTTHRESH(Eigen::Tensor<myTensorType, 3>& b, 
 	int r1 = b.dimension(0)- zeroCols[0];//5
 	int r2 = b.dimension(1)- zeroCols[1];//3
 	int r3 = b.dimension(2)- zeroCols[2];//0
+
+	std::cout << "R: " << r1 << " " << r2 << " " << r3 << std::endl;
 
 	//write characteristic data for decoding
 	BitIO::writeBit(uint64_t(b.dimension(0)), 32);
