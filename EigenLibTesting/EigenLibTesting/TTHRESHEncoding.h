@@ -27,7 +27,7 @@ namespace TTHRESHEncoding {
 	double calcEntropie(std::vector<int> rlePart);
 	int calcRLEP(double * coefficients, int numC, double errorTarget, double& scale);
 
-	std::vector<uint64_t> encodeRLE(double * coefficients, int numC, double errorTarget, bool isCore, std::vector<std::vector<int>> & rle, std::vector<std::vector<bool>>& raw, double& scale, std::vector<bool>& signs);
+	std::vector<uint64_t> encodeRLE(double * coefficients, int numC, double errorTarget, bool isCore, std::vector<std::vector<int>> & rle, std::vector<std::vector<bool>>& raw, double& scale, std::vector<bool>& signs, Eigen::Tensor<myTensorType, 3>& b);
 	double* decodeRLE(std::vector<std::vector<int>>& rle, std::vector<std::vector<bool>>& raw, int numC, double scale, std::vector<bool>& signs);
 	
 	void compress(Eigen::Tensor<myTensorType, 3>& b, std::vector<Eigen::MatrixXd>& us, double errorTarget, ErrorType etype, std::vector<std::vector<int>> & rle, std::vector<std::vector<bool>>& raw, double& scale, std::vector<bool>& signs, double* optimal);
@@ -38,6 +38,8 @@ namespace TTHRESHEncoding {
 
 	void encodeACVektor(std::vector<std::vector<int>>& rleVek);
 	void decodeACVektor(std::vector<std::vector<int>>& rleVek);
+
+	void factoringRLEVector(std::vector<std::vector<int>>& rleVek, int dimSize);
 
 }
 

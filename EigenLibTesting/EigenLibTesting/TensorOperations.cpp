@@ -286,27 +286,58 @@ double * TensorOperations::reorderCore(Eigen::Tensor<myTensorType, 3>& B)
 
 double * TensorOperations::reorderCoreMajor(Eigen::Tensor<myTensorType, 3>& b)
 {
-	//Row major reordering
-	Eigen::Tensor<myTensorType, 3> row_major(b.dimension(1), b.dimension(0), b.dimension(2));
-	for (int i = 0;i < row_major.dimension(2);i++) {
-		for (int j = 0;j < row_major.dimension(1);j++) {
-			for (int k = 0;k < row_major.dimension(0);k++) {
-				row_major(k, j, i) = b(j, k, i);
+	//column major ordering yzx
+	Eigen::Tensor<myTensorType, 3> testo(b.dimension(0), b.dimension(2), b.dimension(1));
+	for (int i = 0;i < testo.dimension(2);i++) {
+		for (int j = 0;j < testo.dimension(1);j++) {
+			for (int k = 0;k < testo.dimension(0);k++) {
+				testo(k, j, i) = b(k, i, j);
 			}
 		}
 	}
 
-	//z major reordering
-	Eigen::Tensor<myTensorType, 3> z_major(b.dimension(2), b.dimension(0), b.dimension(1));
-	for (int i = 0;i < z_major.dimension(2);i++) {
-		for (int j = 0;j < z_major.dimension(1);j++) {
-			for (int k = 0;k < z_major.dimension(0);k++) {
-				z_major(k, j, i) = b(j, i, k);
+
+	//Row major reordering xyz
+	//Eigen::Tensor<myTensorType, 3> testo(b.dimension(1), b.dimension(0), b.dimension(2));
+	for (int i = 0;i < testo.dimension(2);i++) {
+		for (int j = 0;j < testo.dimension(1);j++) {
+			for (int k = 0;k < testo.dimension(0);k++) {
+				testo(k, j, i) = b(j, k, i);
 			}
 		}
 	}
 
-	return row_major.data();
+	// xzy
+	//Eigen::Tensor<myTensorType, 3> testo(b.dimension(1), b.dimension(2), b.dimension(0));
+	for (int i = 0;i < testo.dimension(2);i++) {
+		for (int j = 0;j < testo.dimension(1);j++) {
+			for (int k = 0;k < testo.dimension(0);k++) {
+				testo(k, j, i) = b(i, k, j);
+			}
+		}
+	}
+
+	//z major reordering zyx
+	//Eigen::Tensor<myTensorType, 3> testo(b.dimension(2), b.dimension(0), b.dimension(1));
+	for (int i = 0;i < testo.dimension(2);i++) {
+		for (int j = 0;j < testo.dimension(1);j++) {
+			for (int k = 0;k < testo.dimension(0);k++) {
+				testo(k, j, i) = b(j, i, k);
+			}
+		}
+	}
+
+	// zxy
+	//Eigen::Tensor<myTensorType, 3> testo(b.dimension(2), b.dimension(1), b.dimension(0));
+	for (int i = 0;i < testo.dimension(2);i++) {
+		for (int j = 0;j < testo.dimension(1);j++) {
+			for (int k = 0;k < testo.dimension(0);k++) {
+				testo(k, j, i) = b(i, j, k);
+			}
+		}
+	}
+
+	return testo.data();
 }
 
 double * TensorOperations::reorderCoreBtf(Eigen::Tensor<myTensorType, 3>& B)

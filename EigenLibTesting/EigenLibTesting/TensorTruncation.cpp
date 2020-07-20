@@ -386,9 +386,11 @@ void TensorTruncation::TruncateTensorTTHRESH(Eigen::Tensor<myTensorType, 3>& b, 
 	std::cout << "Zeroes: " << zeroCols[0] << " " << zeroCols[1] << " "<< zeroCols[2] << std::endl;
 
 	//calculate how much to cut off
-	int r1 = b.dimension(0)- zeroCols[0];//5
-	int r2 = b.dimension(1)- zeroCols[1];//3
-	int r3 = b.dimension(2)- zeroCols[2];//0
+	int r1 = b.dimension(0)- zeroCols[0];
+	int r2 = b.dimension(1)- zeroCols[1];
+	int r3 = b.dimension(2)- zeroCols[2];
+
+	//findRnAccError(r1,r2,r3, errorTarget, b); //better solution: find Rn according to target error of AC step
 
 	std::cout << "R: " << r1 << " " << r2 << " " << r3 << std::endl;
 
@@ -411,7 +413,7 @@ void TensorTruncation::TruncateTensorTTHRESH(Eigen::Tensor<myTensorType, 3>& b, 
 	std::vector<bool> signs;
 	double scale = 0;
 
-	std::vector<uint64_t> CoreMask = TTHRESHEncoding::encodeRLE(tCoreData, r1*r2*r3, errorTarget, true, rle, raw, scale, signs);//encode the core with rle+ac
+	std::vector<uint64_t> CoreMask = TTHRESHEncoding::encodeRLE(tCoreData, r1*r2*r3, errorTarget, true, rle, raw, scale, signs, b);//encode the core with rle+ac
 
 	//encode the factor matrices: calculate core-slice norms TODO rballester special case 0
 	Eigen::Tensor<myTensorType, 3> maskTensor = b; //TensorOperations::createTensorFromArray((myTensorType*)CoreMask.data(), b.dimension(0), b.dimension(1), b.dimension(2));//b
@@ -447,7 +449,7 @@ void TensorTruncation::TruncateTensorTTHRESH(Eigen::Tensor<myTensorType, 3>& b, 
 		usScales.push_back(0);
 		usSigns.push_back(std::vector<bool>());
 
-		TTHRESHEncoding::encodeRLE(us[i].data(), us[i].cols()*us[i].rows(), errorTarget, false, usRle[i], usRaw[i], usScales[i], usSigns[i]);//encode the factor matrices with rle+ac
+		TTHRESHEncoding::encodeRLE(us[i].data(), us[i].cols()*us[i].rows(), errorTarget, false, usRle[i], usRaw[i], usScales[i], usSigns[i], b);//encode the factor matrices with rle+ac
 	}
 
 }
@@ -484,4 +486,52 @@ myTensorType* TensorTruncation::truncateTensorWithoutQuant(Eigen::Tensor<myTenso
 
 
 	return truncatedCore;
+}
+
+void TensorTruncation::findRnAccError(int & r1, int & r2, int & r3, double errorTarget, Eigen::Tensor<myTensorType, 3>& b)
+{
+	//build summed area table for fast computation of frob norm: needed for relative error estimate
+	Eigen::Tensor<myTensorType, 3> SAT(b.dimension(0), b.dimension(1), b.dimension(2));
+	SAT.setZero();
+	TensorTruncation::buildSummedAreaTable(b, SAT);
+
+	//calculating all possibilities
+	double frobNormSquared = SAT(b.dimension(0) - 1, b.dimension(1) - 1, b.dimension(2) - 1);
+	double frobNorm = sqrt(frobNormSquared);
+	double D123 = b.dimension(0)*b.dimension(1)*b.dimension(2);
+
+	std::vector<OptimalChoice> choices;//data container to hold all choices for r1,r2,r3 and rel error, compression factor
+
+	for (int r3 = 1; r3 <= b.dimension(2); r3++) {
+		for (int r2 = 1; r2 <= b.dimension(1); r2++) {
+			for (int r1 = 1; r1 <= b.dimension(0); r1++) {
+
+				//formulas according to R.Ballester Paper "Lossy Volume Compression using Tucker truncation and thresholding"
+				double F = ((r1*r2*r3) + (r1*b.dimension(0)) + (r2*b.dimension(1)) + (r3*b.dimension(2))) / D123;
+				double relErr = sqrt(frobNormSquared - SAT(r1 - 1, r2 - 1, r3 - 1)) / frobNorm;
+
+				choices.push_back(createChoiceNode(relErr, F, r1, r2, r3));
+
+			}
+		}
+	}
+
+	std::vector<OptimalChoice> C;//data container to hold all best choices for r1,r2,r3 and rel error, compression factor
+	//sort choice-vector in increasing order (repsect to F)
+	std::sort(choices.begin(), choices.end(), compareByF);
+	double bestError = DBL_MAX;
+	for (int i = 0;i < choices.size();i++) {
+
+		if (choices[i].rE < bestError) {//found improvement
+			bestError = choices[i].rE;
+			C.push_back(choices[i]);
+		}
+
+	}
+
+	//find the optimal r1, r2, r3 values so that error won't be noticeable
+	for (int i = 0;i < C.size();i++) {//find best re-f pair
+		
+	}
+
 }

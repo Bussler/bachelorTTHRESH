@@ -109,7 +109,7 @@ int TTHRESHEncoding::calcRLEP(double * coefficients, int numC, double errorTarge
 }
 
 //encode the coefficients with the help of rle/verbatim until error is below given threshold. Results are written and safed in rle and raw vectors(debugging): Adapted from rballester Github (Alpha, SSE calc)
-std::vector<uint64_t> TTHRESHEncoding::encodeRLE(double * c, int numC, double errorTarget, bool isCore, std::vector<std::vector<int>>& rle, std::vector<std::vector<bool>>& raw, double& scale, std::vector<bool>& signs)
+std::vector<uint64_t> TTHRESHEncoding::encodeRLE(double * c, int numC, double errorTarget, bool isCore, std::vector<std::vector<int>>& rle, std::vector<std::vector<bool>>& raw, double& scale, std::vector<bool>& signs, Eigen::Tensor<myTensorType, 3>& b)
 {
 	//std::ofstream myfile;
 	//myfile.open("Planeausgabe.csv");
@@ -259,6 +259,7 @@ std::vector<uint64_t> TTHRESHEncoding::encodeRLE(double * c, int numC, double er
 	}
 
 	encodeACVektor(rle); //save rle
+	//factoringRLEVector(rle,b.dimension(0)-1);
 	//HuffmanCode coder;
 	//coder.encodeData(rle);
 
@@ -378,7 +379,7 @@ void TTHRESHEncoding::compress(Eigen::Tensor<myTensorType, 3>& b, std::vector<Ei
 
 	double convertedError = sqrt(sse) / dataNorm;
 
-	std::vector<uint64_t> CoreMask = encodeRLE(coefficients, numC, convertedError, true, rle, raw,scale, signs); // encode the core
+	std::vector<uint64_t> CoreMask = encodeRLE(coefficients, numC, convertedError, true, rle, raw,scale, signs, b); // encode the core
 
 	//encode the factor matrices: calculate core-slice norms TODO rballester special case 0
 	Eigen::Tensor<myTensorType, 3> maskTensor = b; //TensorOperations::createTensorFromArray((myTensorType*)CoreMask.data(), b.dimension(0), b.dimension(1), b.dimension(2));//b
@@ -427,7 +428,7 @@ void TTHRESHEncoding::compress(Eigen::Tensor<myTensorType, 3>& b, std::vector<Ei
 		usScales.push_back(0);
 		usSigns.push_back(std::vector<bool>());
 
-		encodeRLE(us[i].data(), us[i].cols()*us[i].rows(), convertedError,false, usRle[i], usRaw[i], usScales[i], usSigns[i] );
+		encodeRLE(us[i].data(), us[i].cols()*us[i].rows(), convertedError,false, usRle[i], usRaw[i], usScales[i], usSigns[i], b);
 	}
 
 }
@@ -659,13 +660,35 @@ void TTHRESHEncoding::encodeACVektor(std::vector<std::vector<int>>& rleVek)
 
 	}
 
-	/*//DEBUGGING
-	std::ofstream myfile;
+	//DEBUGGING
+	//std::cout << "Whole RLE size: " << wholeSize << std::endl;
+	/*std::ofstream myfile;
 	myfile.open("TestausgabeFreq.csv");
 	for (auto it = freq.begin(); it != freq.end(); it++) {//calculate the probabilities and size of interval
-		myfile << it->first << " ," << (it->second).first << "\n";
+		myfile << it->first << "," << (it->second).first << "\n";
 	}
 	myfile.close();*/
+
+	/*std::ofstream myfile3;
+	myfile3.open("BitPerRLESymbol.csv");
+	myfile3 << "RLESymbol,BitsNeeded\n";
+	for (auto it = freq.begin(); it != freq.end(); it++) {//calculate the probabilities and size of interval
+		double percent = (double) ((it->second).first * 100) / wholeSize;
+		double bitsNeeded = (double) (-1)* std::log2(percent/100);
+		myfile3 << it->first << "," << bitsNeeded << "\n";
+	}
+	myfile3.close();*/
+
+	/*std::ofstream myfile2;
+	myfile2.open("NumberFreq.csv");
+	std::map<uint64_t, int> Numberfreq;// Debugging: counting occurances of frequencies
+	for (auto it = freq.begin(); it != freq.end(); it++) {//calculate the probabilities and size of interval
+		Numberfreq[(it->second.first)] += 1;
+	}
+	for (auto it = Numberfreq.begin(); it != Numberfreq.end(); it++) {//calculate the probabilities and size of interval
+		myfile2 << it->first << "," << (it->second) << "\n";
+	}
+	myfile2.close();*/
 
 	uint64_t count = 0;
 	for (auto it = freq.begin(); it != freq.end(); it++) {//calculate the probabilities and size of interval
@@ -879,6 +902,85 @@ void TTHRESHEncoding::decodeACVektor(std::vector<std::vector<int>>& rleVek)
 		}
 
 	}
+
+}
+
+//function to factorize RLE Symbols to get a more evenly distrubuted AC-Frequency Model. Note, which numbers are factorized with bit-map
+void TTHRESHEncoding::factoringRLEVector(std::vector<std::vector<int>>& rleVek, int dimSize)
+{
+	int wholeSize = 0;
+	std::map<int, std::pair<uint64_t, double>> freq;// key -> (count of key, bits needed)
+	for (int i = 0; i < rleVek.size(); i++) {
+		for (int j = 0; j < rleVek[i].size(); j++) {
+			freq[rleVek[i][j]].first += 1; //count the occurences of the key
+			wholeSize++;
+		}
+	}
+
+	for (auto it = freq.begin(); it != freq.end(); it++) {//calculate bits needed for each rleSymbol
+		double percent = (double)((it->second).first * 100) / wholeSize;
+		double bitsNeeded = (double)(-1)* std::log2(percent / 100);
+		it->second.second = bitsNeeded;
+	}
+
+	std::vector<std::vector<bool>> facBitMap;//create bitmap for every rleSymbol to note, if factorized
+	for (int i = 0;i < rleVek.size();i++) {
+		std::vector<bool> t(rleVek[i].size(), false);
+		facBitMap.push_back(t);
+	}
+	std::vector<std::vector<int>> FacRleVek;//vector to store the factorized results in and later pass on to AC
+	for (int i = 0;i < rleVek.size();i++) {
+		std::vector<int> t;
+		FacRleVek.push_back(t);
+	}
+
+	std::vector<int> dimensionMultiples;//create list of dimension multiples to factorize
+	int curFac = dimSize;
+	while (curFac > 2) {
+		dimensionMultiples.push_back(curFac);
+		//std::cout << curFac << " : "<< freq[curFac].second <<" bits" << std::endl;
+		curFac = std::ceil((double)curFac / 2);
+	}
+	std::sort(dimensionMultiples.begin(), dimensionMultiples.end());//sort ascending 
+
+	for (int i = 0;i < rleVek.size();i++) {//iterate over rle vek and factorize symbols, where advantageous
+		for (int j = 0;j < rleVek[i].size();j++) {
+			double bestBits = freq[rleVek[i][j]].second;
+			int bFactor1 = 0;
+			int bFactor2 = 0;
+
+			for (int curMultiple = 0;curMultiple < dimensionMultiples.size();curMultiple++) {//check for each multiple, if we can advantageously factorize
+
+				if (rleVek[i][j] % dimensionMultiples[curMultiple] == 0) {//we can factorize
+					int factor1 = rleVek[i][j] / dimensionMultiples[curMultiple];
+					int factor2 = dimensionMultiples[curMultiple];
+
+					auto it1 = freq.find(factor1);
+					auto it2 = freq.find(factor2);
+
+					if (it1!= freq.end() && it2 != freq.end() && freq[factor1].second + freq[factor2].second < bestBits) {//it is advantageous to factorize
+						bestBits = freq[factor1].second + freq[factor2].second;
+						bFactor1 = factor1;
+						bFactor2 = factor2;
+					}
+				}
+			}
+
+			if (bFactor1 != 0 || bFactor2 != 0) {//we were able to factorize
+				FacRleVek[i].push_back(bFactor1);
+				FacRleVek[i].push_back(bFactor2);
+				facBitMap[i][j] = true;
+				//std::cout << "Factorize! " << rleVek[i][j] << " : " << freq[rleVek[i][j]].second << " bits; " << bFactor1 << " * " << bFactor2 << " : " << freq[bFactor1].second + freq[bFactor2].second << " bits." << std::endl;
+			}
+			else {//if not, just safe the original data
+				FacRleVek[i].push_back(rleVek[i][j]);
+			}
+
+		}
+	}
+
+	//TODO safe bitmap
+	encodeACVektor(FacRleVek);
 
 }
 
