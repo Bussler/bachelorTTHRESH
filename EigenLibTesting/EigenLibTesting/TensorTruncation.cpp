@@ -390,7 +390,7 @@ void TensorTruncation::TruncateTensorTTHRESH(Eigen::Tensor<myTensorType, 3>& b, 
 	int r2 = b.dimension(1)- zeroCols[1];
 	int r3 = b.dimension(2)- zeroCols[2];
 
-	//findRnAccError(r1,r2,r3, errorTarget, b); //better solution: find Rn according to target error of AC step
+	findRnAccError(r1,r2,r3, 0.01, b); //better solution: find Rn according to target error of AC step
 
 	std::cout << "R: " << r1 << " " << r2 << " " << r3 << std::endl;
 
@@ -531,7 +531,19 @@ void TensorTruncation::findRnAccError(int & r1, int & r2, int & r3, double error
 
 	//find the optimal r1, r2, r3 values so that error won't be noticeable
 	for (int i = 0;i < C.size();i++) {//find best re-f pair
-		
+		if (C[i].rE <= errorTarget || i == C.size() - 1) {
+			if ((i > 0) && abs(C[i].rE - errorTarget) > abs(C[i - 1].rE - errorTarget)) {
+				r1 = C[i - 1].r1;
+				r2 = C[i - 1].r2;
+				r3 = C[i - 1].r3;
+			}
+			else {
+				r1 = C[i].r1;
+				r2 = C[i].r2;
+				r3 = C[i].r3;
+			}
+			break;
+		}
 	}
 
 }

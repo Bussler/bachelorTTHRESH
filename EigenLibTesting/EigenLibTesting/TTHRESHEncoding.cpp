@@ -662,12 +662,12 @@ void TTHRESHEncoding::encodeACVektor(std::vector<std::vector<int>>& rleVek)
 
 	//DEBUGGING
 	//std::cout << "Whole RLE size: " << wholeSize << std::endl;
-	/*std::ofstream myfile;
+	std::ofstream myfile;
 	myfile.open("TestausgabeFreq.csv");
 	for (auto it = freq.begin(); it != freq.end(); it++) {//calculate the probabilities and size of interval
 		myfile << it->first << "," << (it->second).first << "\n";
 	}
-	myfile.close();*/
+	myfile.close();
 
 	/*std::ofstream myfile3;
 	myfile3.open("BitPerRLESymbol.csv");
@@ -936,12 +936,28 @@ void TTHRESHEncoding::factoringRLEVector(std::vector<std::vector<int>>& rleVek, 
 
 	std::vector<int> dimensionMultiples;//create list of dimension multiples to factorize
 	int curFac = dimSize;
-	while (curFac > 2) {
+	while (curFac > 2) { //nach unten bringt gar nicht so viel bit-vorteil!
 		dimensionMultiples.push_back(curFac);
-		//std::cout << curFac << " : "<< freq[curFac].second <<" bits" << std::endl;
 		curFac = std::ceil((double)curFac / 2);
 	}
+
+	int facCounter = 2;
+	auto it = freq.find((dimSize*facCounter)+(facCounter-1));
+	while (it!=freq.end()) {//newnum = (dimsite*2)+1
+		curFac = (dimSize*facCounter) + (facCounter - 1);
+		facCounter++;
+		dimensionMultiples.push_back(curFac);
+		it= freq.find((dimSize*facCounter) + (facCounter - 1));
+	}
+
 	std::sort(dimensionMultiples.begin(), dimensionMultiples.end());//sort ascending 
+
+	//DEBUGGING
+	std::ofstream myfile;
+	myfile.open("FacAnalysis.csv");
+	myfile << "OrigNum, OrigBits, Fac1, Fac2, newBits, actualGain\n";
+	int factNumbers = 0;
+	int BitGain = 0;
 
 	for (int i = 0;i < rleVek.size();i++) {//iterate over rle vek and factorize symbols, where advantageous
 		for (int j = 0;j < rleVek[i].size();j++) {
@@ -971,6 +987,9 @@ void TTHRESHEncoding::factoringRLEVector(std::vector<std::vector<int>>& rleVek, 
 				FacRleVek[i].push_back(bFactor2);
 				facBitMap[i][j] = true;
 				//std::cout << "Factorize! " << rleVek[i][j] << " : " << freq[rleVek[i][j]].second << " bits; " << bFactor1 << " * " << bFactor2 << " : " << freq[bFactor1].second + freq[bFactor2].second << " bits." << std::endl;
+				myfile << rleVek[i][j] << "," << freq[rleVek[i][j]].second << "," << bFactor1 << "," << bFactor2 << "," << freq[bFactor1].second + freq[bFactor2].second << "," << std::ceil(freq[rleVek[i][j]].second) - std::ceil((freq[bFactor1].second + freq[bFactor2].second)) << "\n";
+				factNumbers++;
+				BitGain += std::ceil(freq[rleVek[i][j]].second) - std::ceil((freq[bFactor1].second + freq[bFactor2].second));
 			}
 			else {//if not, just safe the original data
 				FacRleVek[i].push_back(rleVek[i][j]);
@@ -978,6 +997,13 @@ void TTHRESHEncoding::factoringRLEVector(std::vector<std::vector<int>>& rleVek, 
 
 		}
 	}
+
+	std::cout << "Factorize: " << factNumbers << " numbers; " << BitGain << " safed bits" << std::endl;
+	std::cout << "Multiples:" << std::endl;
+	for (int i = 0;i < dimensionMultiples.size();i++) {
+		std::cout << dimensionMultiples[i] << std::endl;
+	}
+	myfile.close();
 
 	//TODO safe bitmap
 	encodeACVektor(FacRleVek);
