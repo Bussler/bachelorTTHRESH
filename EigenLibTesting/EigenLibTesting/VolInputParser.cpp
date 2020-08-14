@@ -185,6 +185,7 @@ void VolInputParser::readInputVol(char * txtname)
 
 	fclose(fp);
 	delete pData;
+	std::cout << "Parsing success" << std::endl;
 }
 
 void VolInputParser::readRawInputVol(char * txtname)
