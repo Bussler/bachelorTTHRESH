@@ -662,12 +662,12 @@ void TTHRESHEncoding::encodeACVektor(std::vector<std::vector<int>>& rleVek)
 
 	//DEBUGGING
 	//std::cout << "Whole RLE size: " << wholeSize << std::endl;
-	std::ofstream myfile;
+	/*std::ofstream myfile;
 	myfile.open("TestausgabeFreq.csv");
 	for (auto it = freq.begin(); it != freq.end(); it++) {//calculate the probabilities and size of interval
 		myfile << it->first << "," << (it->second).first << "\n";
 	}
-	myfile.close();
+	myfile.close();*/
 
 	/*std::ofstream myfile3;
 	myfile3.open("BitPerRLESymbol.csv");
