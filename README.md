@@ -7,6 +7,8 @@ Implemented are three volume compression techniques: TTHRESH, core Truncation an
 #### How to use
 
 Call with two command line arguments: 1) name of data file (e.g. stagbeetle277x277x164.dat)
+                                      
+                                      
                                       2) target Error for compression (e.g. 0.0003).
                                       
 After parsing of the original data, one of the three compression techniques can be selected.
