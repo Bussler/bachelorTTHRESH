@@ -1,4 +1,7 @@
 # bachelorTTHRESH
+
+[**Project**](https://bussler.github.io/tthresh/)
+
 ### Compression of 3d Volume Data
 Code for my Bachelor Thesis with the topic of volume data compression.
 An example testset "stagbeetle277x277x164.dat" is provided for testing.
